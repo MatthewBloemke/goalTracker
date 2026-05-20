@@ -33,10 +33,9 @@ export async function updateSession(request: NextRequest) {
 
   // Redirect unauthenticated users to login
   const isAuthRoute = request.nextUrl.pathname.startsWith('/login');
-  const isPublicRoute = request.nextUrl.pathname === '/';
   const isDisplayRoute = request.nextUrl.pathname.startsWith('/display');
 
-  if (!user && !isAuthRoute && !isPublicRoute && !isDisplayRoute) {
+  if (!user && !isAuthRoute && !isDisplayRoute) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);

@@ -186,7 +186,9 @@ function LoginContent() {
 }
 
 export default function LoginPage() {
-  <Suspense fallback={null}>
-    <LoginContent />
-  </Suspense>;
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
+  );
 }
