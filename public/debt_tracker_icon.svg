@@ -1,0 +1,87 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <linearGradient id="bg" x1="90" y1="70" x2="420" y2="430" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#041445"/>
+    <stop offset="0.55" stop-color="#06356A"/>
+    <stop offset="1" stop-color="#18E7D1"/>
+  </linearGradient>
+
+  <linearGradient id="border" x1="70" y1="70" x2="440" y2="440" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#2A56FF"/>
+    <stop offset="0.5" stop-color="#2CF1DF"/>
+    <stop offset="1" stop-color="#0A58C8"/>
+  </linearGradient>
+
+  <linearGradient id="bars" x1="150" y1="390" x2="380" y2="180" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#0A58F0"/>
+    <stop offset="0.55" stop-color="#1CD5E7"/>
+    <stop offset="1" stop-color="#D9FFF8"/>
+  </linearGradient>
+
+  <linearGradient id="arrow" x1="120" y1="260" x2="385" y2="120" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#17D4E9"/>
+    <stop offset="0.55" stop-color="#7AFFF1"/>
+    <stop offset="1" stop-color="#FFFFFF"/>
+  </linearGradient>
+
+  <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+    <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#000814" flood-opacity="0.45"/>
+  </filter>
+
+  <filter id="glow" x="-35%" y="-35%" width="170%" height="170%">
+    <feGaussianBlur stdDeviation="7" result="blur"/>
+    <feMerge>
+      <feMergeNode in="blur"/>
+      <feMergeNode in="SourceGraphic"/>
+    </feMerge>
+  </filter>
+
+  <clipPath id="clip">
+    <rect x="58" y="58" width="396" height="396" rx="76"/>
+  </clipPath>
+</defs>
+
+<g filter="url(#shadow)">
+  <rect x="58" y="58" width="396" height="396" rx="76" fill="url(#bg)"/>
+  <rect x="64" y="64" width="384" height="384" rx="70" stroke="url(#border)" stroke-width="10"/>
+</g>
+
+<g clip-path="url(#clip)">
+  <!-- lower glow -->
+  <ellipse cx="332" cy="392" rx="160" ry="34" fill="#52FFF0" opacity="0.16"/>
+  <ellipse cx="250" cy="410" rx="220" ry="38" fill="#041D5B" opacity="0.55"/>
+
+  <!-- stars -->
+  <circle cx="118" cy="140" r="3" fill="#8FFFF7"/>
+  <circle cx="160" cy="114" r="2" fill="#C9FFF9"/>
+  <circle cx="220" cy="145" r="2.5" fill="#8FFFF7"/>
+  <circle cx="300" cy="118" r="3" fill="#BFFFF9"/>
+  <circle cx="378" cy="150" r="4" fill="#8FFFF7"/>
+  <circle cx="398" cy="236" r="2.5" fill="#D7FFFD"/>
+  <circle cx="126" cy="206" r="2" fill="#68ECFF"/>
+
+  <!-- bars -->
+  <rect x="132" y="324" width="48" height="64" rx="8" fill="url(#bars)" stroke="#97FFF6" stroke-width="2"/>
+  <rect x="204" y="282" width="48" height="106" rx="8" fill="url(#bars)" stroke="#97FFF6" stroke-width="2"/>
+  <rect x="276" y="228" width="48" height="160" rx="8" fill="url(#bars)" stroke="#97FFF6" stroke-width="2"/>
+  <rect x="348" y="160" width="52" height="228" rx="8" fill="url(#bars)" stroke="#97FFF6" stroke-width="2"/>
+
+  <!-- swoosh -->
+  <path d="M90 300C145 260 190 236 248 218" stroke="#0A56C7" stroke-width="14" stroke-linecap="round" opacity="0.65"/>
+
+  <!-- arrow shadow -->
+  <path d="M145 230L220 305L370 155" stroke="#041838" stroke-width="54" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+
+  <!-- arrow -->
+  <path d="M145 220L220 295L370 145" stroke="url(#arrow)" stroke-width="40" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+
+  <!-- arrow head -->
+  <path d="M315 145H390V220" stroke="url(#arrow)" stroke-width="40" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+
+  <!-- highlight -->
+  <path d="M155 212L221 278L360 139" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity="0.35"/>
+
+  <!-- bottom shine -->
+  <rect x="80" y="392" width="350" height="10" rx="5" fill="#71FFF3" opacity="0.25"/>
+</g>
+</svg>
