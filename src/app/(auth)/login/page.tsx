@@ -9,6 +9,7 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Alert from '@mui/material/Alert';
 import Typography from '@mui/material/Typography';
+import { Suspense } from 'react';
 
 const GoogleIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24">
@@ -31,7 +32,7 @@ const GoogleIcon = () => (
   </svg>
 );
 
-export default function LoginPage() {
+function LoginContent() {
   const { supabase } = useSupabase();
   const searchParams = useSearchParams();
   const authError = searchParams.get('error');
@@ -182,4 +183,10 @@ export default function LoginPage() {
       </div>
     </div>
   );
+}
+
+export default function LoginPage() {
+  <Suspense fallback={null}>
+    <LoginContent />
+  </Suspense>;
 }
