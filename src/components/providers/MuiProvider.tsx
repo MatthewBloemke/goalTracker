@@ -1,9 +1,13 @@
-'use client'
+'use client';
 
-import { createTheme, ThemeProvider, CssBaseline } from '@mui/material'
-import { DM_Sans } from 'next/font/google'
+import { createTheme, ThemeProvider, CssBaseline } from '@mui/material';
+import { AppRouterCacheProvider } from '@mui/material-nextjs/v16-appRouter';
+import { DM_Sans } from 'next/font/google';
 
-const dmSans = DM_Sans({ subsets: ['latin'], weight: ['300', '400', '500', '600', '700'] })
+const dmSans = DM_Sans({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+});
 
 const theme = createTheme({
   palette: {
@@ -190,13 +194,15 @@ const theme = createTheme({
       },
     },
   },
-})
+});
 
 export function MuiProvider({ children }: { children: React.ReactNode }) {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      {children}
-    </ThemeProvider>
-  )
+    <AppRouterCacheProvider>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        {children}
+      </ThemeProvider>
+    </AppRouterCacheProvider>
+  );
 }
