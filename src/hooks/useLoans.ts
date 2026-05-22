@@ -1,14 +1,14 @@
-'use client'
+'use client';
 
-import { useEffect, useState, useCallback } from 'react'
-import { useSupabase } from '@/components/providers/SupabaseProvider'
-import { buildSnowballSummary } from '@/lib/snowball'
-import type { Loan, SnowballSummary, SnowballStrategy } from '@/types'
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useSupabase } from '@/components/providers/SupabaseProvider';
+import { buildSnowballSummary } from '@/lib/snowball';
+import type { Loan, SnowballSummary, SnowballStrategy } from '@/types';
 
 interface UseLoansOptions {
-  familyId?: string | null
-  strategy?: SnowballStrategy
-  extraMonthlyBudget?: number
+  familyId?: string | null;
+  strategy?: SnowballStrategy;
+  extraMonthlyBudget?: number;
 }
 
 export function useLoans({
@@ -16,70 +16,87 @@ export function useLoans({
   strategy = 'snowball',
   extraMonthlyBudget = 0,
 }: UseLoansOptions = {}) {
-  const { supabase, user } = useSupabase()
-  const [loans, setLoans] = useState<Loan[]>([])
-  const [summary, setSummary] = useState<SnowballSummary | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { supabase, user } = useSupabase();
+  const [loans, setLoans] = useState<Loan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchLoans = useCallback(async () => {
-    if (!user) return
-    setError(null)
+  const fetchLoans = useCallback(
+    async (showLoading = false) => {
+      if (!user) return;
 
-    let query = supabase
-      .from('loans')
-      .select('*')
-      .order('snowball_order', { ascending: true, nullsFirst: false })
+      if (showLoading) setLoading(true);
+      setError(null);
 
-    if (familyId) {
-      query = query.eq('family_id', familyId)
-    } else {
-      query = query.eq('user_id', user.id)
-    }
+      const query = supabase
+        .from('loans')
+        .select('*')
+        .order('snowball_order', { ascending: true, nullsFirst: false });
 
-    const { data, error } = await query
+      const { data, error: fetchError } = await (familyId
+        ? query.eq('family_id', familyId)
+        : query.eq('user_id', user.id));
 
-    if (error) {
-      setError(error.message)
-      return
-    }
+      if (fetchError) {
+        setError(fetchError.message);
+        setLoading(false);
+        return;
+      }
 
-    const loanData = data as Loan[]
-    setLoans(loanData)
-    setSummary(buildSnowballSummary(loanData, strategy, extraMonthlyBudget))
-    setLoading(false)
-  }, [supabase, user, familyId, strategy, extraMonthlyBudget])
+      setLoans((data ?? []) as Loan[]);
+      setLoading(false);
+    },
+    [supabase, user, familyId],
+  );
 
-  // Initial fetch
+  // Initial fetch — cancellable to prevent stale state on fast re-mounts
   useEffect(() => {
-    fetchLoans()
-  }, [fetchLoans])
+    let cancelled = false;
 
-  // Realtime subscription
+    const run = async () => {
+      await fetchLoans(true);
+      // If cancelled after fetch resolves, undo the state update
+      if (cancelled) {
+        setLoans([]);
+        setLoading(true);
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchLoans]);
+
+  // Realtime subscription — silent refetch, no loading spinner
   useEffect(() => {
-    if (!user) return
+    if (!user) return;
+
+    const filter = familyId
+      ? `family_id=eq.${familyId}`
+      : `user_id=eq.${user.id}`;
 
     const channel = supabase
-      .channel('loans-realtime')
+      .channel(`loans-realtime-${familyId ?? user.id}`)
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'loans',
-          filter: familyId ? `family_id=eq.${familyId}` : `user_id=eq.${user.id}`,
-        },
-        () => {
-          // Re-fetch on any change — keeps logic simple and consistent
-          fetchLoans()
-        }
+        { event: '*', schema: 'public', table: 'loans', filter },
+        () => fetchLoans(false),
       )
-      .subscribe()
+      .subscribe();
 
     return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [supabase, user, familyId, fetchLoans])
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, user, familyId, fetchLoans]);
 
-  return { loans, summary, loading, error, refetch: fetchLoans }
+  const summary = useMemo<SnowballSummary | null>(
+    () =>
+      loans.length > 0
+        ? buildSnowballSummary(loans, strategy, extraMonthlyBudget)
+        : null,
+    [loans, strategy, extraMonthlyBudget],
+  );
+
+  return { loans, summary, loading, error, refetch: () => fetchLoans(true) };
 }

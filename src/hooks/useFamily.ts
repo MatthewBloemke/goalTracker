@@ -43,13 +43,31 @@ export function useFamily() {
     setFamily(familyData);
     setIsAdmin(memberData.role === 'admin');
 
-    // Get all members with profiles
+    // Get all members
     const { data: allMembers } = await supabase
       .from('family_members')
-      .select('*, profiles(*)')
+      .select('id, family_id, user_id, role, joined_at')
       .eq('family_id', familyData.id);
 
-    setMembers((allMembers ?? []) as unknown as FamilyMemberWithProfile[]);
+    if (allMembers && allMembers.length > 0) {
+      // Fetch profiles separately for each member
+      const userIds = allMembers.map((m) => m.user_id);
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, user_id, display_name, avatar_url')
+        .in('user_id', userIds);
+
+      const profileMap = new Map(
+        (profilesData ?? []).map((p) => [p.user_id, p]),
+      );
+      const membersWithProfiles = allMembers.map((m) => ({
+        ...m,
+        profiles: profileMap.get(m.user_id) ?? null,
+      }));
+      setMembers(membersWithProfiles as unknown as FamilyMemberWithProfile[]);
+    } else {
+      setMembers([]);
+    }
 
     // Get family settings
     const { data: settingsData } = await supabase
@@ -64,14 +82,84 @@ export function useFamily() {
 
   useEffect(() => {
     let cancelled = false;
+
     const run = async () => {
-      if (!cancelled) await fetchFamily();
+      if (!user) return;
+
+      setError(null);
+      setLoading(true);
+
+      const { data: rawMember, error: memberError } = await supabase
+        .from('family_members')
+        .select('*, families(*)')
+        .eq('user_id', user.id)
+        .single();
+
+      console.log(rawMember);
+
+      if (cancelled) return;
+
+      if (memberError || !rawMember) {
+        setLoading(false);
+        return;
+      }
+
+      const memberData = rawMember as MemberWithFamily;
+      const familyData = memberData.families;
+      setFamily(familyData);
+      setIsAdmin(memberData.role === 'admin');
+
+      // Get all members
+      const { data: allMembers } = await supabase
+        .from('family_members')
+        .select('id, family_id, user_id, role, joined_at')
+        .eq('family_id', familyData.id);
+
+      if (cancelled) return;
+
+      console.log(allMembers, 'all members');
+
+      if (allMembers && allMembers.length > 0) {
+        // Fetch profiles separately for each member
+        const userIds = allMembers.map((m) => m.user_id);
+        console.log(userIds);
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, user_id, display_name, avatar_url')
+          .in('user_id', userIds);
+
+        console.log(profilesData, 'profilesData');
+        const profileMap = new Map(
+          (profilesData ?? []).map((p) => [p.user_id, p]),
+        );
+        const membersWithProfiles = allMembers.map((m) => ({
+          ...m,
+          profiles: profileMap.get(m.user_id) ?? null,
+        }));
+        setMembers(membersWithProfiles as unknown as FamilyMemberWithProfile[]);
+      } else {
+        setMembers([]);
+      }
+      if (cancelled) return;
+
+      const { data: settingsData } = await supabase
+        .from('family_settings')
+        .select('*')
+        .eq('family_id', familyData.id)
+        .single();
+
+      if (cancelled) return;
+
+      setSettings(settingsData as FamilySettings | null);
+      setLoading(false);
     };
+
     run();
+
     return () => {
       cancelled = true;
     };
-  }, [fetchFamily]);
+  }, [supabase, user]);
 
   // Realtime: watch for member changes
   useEffect(() => {

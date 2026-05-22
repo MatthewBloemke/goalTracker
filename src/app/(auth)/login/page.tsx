@@ -1,7 +1,7 @@
 'use client';
 
 import { useSupabase } from '@/components/providers/SupabaseProvider';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Logo from '../../../../public/debtTracker.png';
 import Button from '@mui/material/Button';
@@ -9,7 +9,7 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Alert from '@mui/material/Alert';
 import Typography from '@mui/material/Typography';
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 
 const GoogleIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24">
@@ -33,7 +33,10 @@ const GoogleIcon = () => (
 );
 
 function LoginContent() {
-  const { supabase } = useSupabase();
+  const router = useRouter();
+
+  const { supabase, user, loading } = useSupabase();
+
   const searchParams = useSearchParams();
   const authError = searchParams.get('error');
 
@@ -45,6 +48,18 @@ function LoginContent() {
       },
     });
   };
+
+  useEffect(() => {
+    // Once authenticated, leave login page immediately
+    if (!loading && user) {
+      router.replace('/');
+      router.refresh();
+    }
+  }, [loading, user, router]);
+
+  if (loading || user) {
+    return null;
+  }
 
   return (
     <div

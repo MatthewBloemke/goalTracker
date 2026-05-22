@@ -229,13 +229,13 @@ export default function DashboardPage() {
                   />
                 </div>
                 <span
-                  className="text-sm min-w-[100px]"
+                  className="text-sm min-w-25"
                   style={{ color: 'var(--text-secondary)' }}
                 >
                   {loan.name}
                 </span>
                 <span
-                  className="font-serif text-sm min-w-[80px] text-right"
+                  className="font-serif text-sm min-w-20 text-right"
                   style={{ color: 'var(--text-primary)' }}
                 >
                   {formatCurrency(loan.current_balance)}

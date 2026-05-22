@@ -28,7 +28,6 @@ export default function FamilyPage() {
     setSubmitting(true);
     setError(null);
     const result = await createFamily(familyName.trim());
-    console.log('Full result:', JSON.stringify(result));
     if (!result.success) setError(result.error ?? 'Failed to create family');
     setSubmitting(false);
   };
