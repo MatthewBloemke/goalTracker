@@ -51,7 +51,7 @@ export function LoanCard({
         onClick={() => !editing && setExpanded((e) => !e)}
       >
         <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0"
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0"
           style={{
             background: isPaidOff
               ? 'rgba(16,212,126,0.15)'
@@ -105,7 +105,7 @@ export function LoanCard({
           )}
         </div>
 
-        <div className="text-right flex-shrink-0">
+        <div className="text-right shrink-0">
           <p
             className="font-serif text-lg"
             style={{
@@ -130,7 +130,7 @@ export function LoanCard({
           stroke="currentColor"
           strokeWidth="2"
           strokeLinecap="round"
-          className="flex-shrink-0 transition-transform duration-200"
+          className="shrink-0 transition-transform duration-200"
           style={{
             color: 'var(--text-secondary)',
             transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',

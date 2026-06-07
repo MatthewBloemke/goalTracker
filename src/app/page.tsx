@@ -1,22 +1,66 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import dayjs from 'dayjs';
+import {
+  Box,
+  Card,
+  InputAdornment,
+  Stack,
+  Typography,
+} from '@mui/material';
 import { useFamily } from '@/hooks/useFamily';
 import { useLoans } from '@/hooks/useLoans';
+import { useSupabase } from '@/components/providers/SupabaseProvider';
 import { Thermometer } from '@/components/ui/Thermometer';
 import { TotalProgressBar } from '@/components/ui/TotalProgressBar';
 import { PaymentButtons } from '@/components/ui/PaymentButton';
-import Link from 'next/link';
+import { AppTextField } from '@/components/ui/AppTextField';
 import { formatCurrency, formatMonthsRemaining } from '@/lib/snowball';
 
 export default function DashboardPage() {
+  const { user } = useSupabase();
   const { family, settings, loading: familyLoading } = useFamily();
+  const [currentMonthExtra, setCurrentMonthExtra] = useState('');
+  const currentMonthKey = useMemo(() => {
+    const owner = family?.id ?? user?.id ?? 'personal';
+    return `debt-snowball:current-month-extra:${owner}:${dayjs().format('YYYY-MM')}`;
+  }, [family?.id, user?.id]);
+  const parsedCurrentMonthExtra = Number(currentMonthExtra) > 0
+    ? Number(currentMonthExtra)
+    : 0;
+
   const { summary, loading: loansLoading } = useLoans({
     familyId: family?.id,
     strategy: settings?.strategy ?? 'snowball',
     extraMonthlyBudget: settings?.extra_monthly_budget ?? 0,
+    currentMonthExtraPayment: parsedCurrentMonthExtra,
   });
 
   const loading = familyLoading || loansLoading;
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setCurrentMonthExtra(localStorage.getItem(currentMonthKey) ?? '');
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [currentMonthKey]);
+
+  const handleCurrentMonthExtraChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const value = event.target.value;
+    setCurrentMonthExtra(value);
+
+    if (value === '') {
+      localStorage.removeItem(currentMonthKey);
+      return;
+    }
+
+    localStorage.setItem(currentMonthKey, value);
+  };
 
   if (loading) {
     return (
@@ -134,6 +178,44 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      <Card sx={{ p: 3 }}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={3}
+          sx={{
+            alignItems: { xs: 'stretch', sm: 'center' },
+            justifyContent: 'space-between',
+          }}
+        >
+          <Box>
+            <Typography variant="overline" color="text.secondary">
+              {dayjs().format('MMMM')} Extra Principal
+            </Typography>
+            <Typography variant="h6" color="text.primary">
+              {parsedCurrentMonthExtra > 0
+                ? `${formatCurrency(parsedCurrentMonthExtra)} queued`
+                : 'No extra queued'}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Debt-free date:{' '}
+              {summary.debt_free_date
+                ? dayjs(summary.debt_free_date).format('MMM YYYY')
+                : 'N/A'}
+            </Typography>
+          </Box>
+          <Box sx={{ width: { xs: '100%', sm: 220 } }}>
+            <AppTextField
+              value={currentMonthExtra}
+              onChange={handleCurrentMonthExtraChange}
+              type="number"
+              placeholder="0.00"
+              inputProps={{ min: 0, step: '0.01' }}
+              startAdornment={<InputAdornment position="start">$</InputAdornment>}
+            />
+          </Box>
+        </Stack>
+      </Card>
 
       {/* Next target preview */}
       {next_target && (

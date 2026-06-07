@@ -1,16 +1,9 @@
-'use client'
+'use client';
 
-import MuiTextField, { TextFieldProps } from '@mui/material/TextField'
+import { OutlinedInput, OutlinedInputProps } from '@mui/material';
 
 // Thin wrapper that sets our preferred defaults so callsites stay clean.
 // All MUI TextField props pass through unchanged.
-export function AppTextField(props: TextFieldProps) {
-  return (
-    <MuiTextField
-      variant="outlined"
-      fullWidth
-      size="small"
-      {...props}
-    />
-  )
+export function AppTextField(props: OutlinedInputProps) {
+  return <OutlinedInput fullWidth size="small" {...props} />;
 }

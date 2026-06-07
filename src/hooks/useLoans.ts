@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useSupabase } from '@/components/providers/SupabaseProvider';
 import { buildSnowballSummary } from '@/lib/snowball';
 import type { Loan, SnowballSummary, SnowballStrategy } from '@/types';
@@ -9,21 +9,30 @@ interface UseLoansOptions {
   familyId?: string | null;
   strategy?: SnowballStrategy;
   extraMonthlyBudget?: number;
+  currentMonthExtraPayment?: number;
 }
 
 export function useLoans({
   familyId,
   strategy = 'snowball',
   extraMonthlyBudget = 0,
+  currentMonthExtraPayment = 0,
 }: UseLoansOptions = {}) {
   const { supabase, user } = useSupabase();
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
 
   const fetchLoans = useCallback(
     async (showLoading = false) => {
-      if (!user) return;
+      const requestId = ++requestIdRef.current;
+
+      if (!user) {
+        setLoans([]);
+        setLoading(false);
+        return;
+      }
 
       if (showLoading) setLoading(true);
       setError(null);
@@ -36,6 +45,8 @@ export function useLoans({
       const { data, error: fetchError } = await (familyId
         ? query.eq('family_id', familyId)
         : query.eq('user_id', user.id));
+
+      if (requestId !== requestIdRef.current) return;
 
       if (fetchError) {
         setError(fetchError.message);
@@ -51,21 +62,7 @@ export function useLoans({
 
   // Initial fetch — cancellable to prevent stale state on fast re-mounts
   useEffect(() => {
-    let cancelled = false;
-
-    const run = async () => {
-      await fetchLoans(true);
-      // If cancelled after fetch resolves, undo the state update
-      if (cancelled) {
-        setLoans([]);
-        setLoading(true);
-      }
-    };
-
-    run();
-    return () => {
-      cancelled = true;
-    };
+    void Promise.resolve().then(() => fetchLoans(true));
   }, [fetchLoans]);
 
   // Realtime subscription — silent refetch, no loading spinner
@@ -93,9 +90,14 @@ export function useLoans({
   const summary = useMemo<SnowballSummary | null>(
     () =>
       loans.length > 0
-        ? buildSnowballSummary(loans, strategy, extraMonthlyBudget)
+        ? buildSnowballSummary(
+            loans,
+            strategy,
+            extraMonthlyBudget,
+            currentMonthExtraPayment,
+          )
         : null,
-    [loans, strategy, extraMonthlyBudget],
+    [loans, strategy, extraMonthlyBudget, currentMonthExtraPayment],
   );
 
   return { loans, summary, loading, error, refetch: () => fetchLoans(true) };

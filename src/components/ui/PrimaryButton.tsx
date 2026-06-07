@@ -1,13 +1,19 @@
-'use client'
+'use client';
 
-import MuiButton, { ButtonProps as MuiButtonProps } from '@mui/material/Button'
-import CircularProgress from '@mui/material/CircularProgress'
+import MuiButton, { ButtonProps as MuiButtonProps } from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
 
 interface PrimaryButtonProps extends Omit<MuiButtonProps, 'variant' | 'color'> {
-  loading?: boolean
+  loading?: boolean;
 }
 
-export function PrimaryButton({ loading, disabled, children, sx, ...props }: PrimaryButtonProps) {
+export function PrimaryButton({
+  loading,
+  disabled,
+  children,
+  sx,
+  ...props
+}: PrimaryButtonProps) {
   return (
     <MuiButton
       variant="contained"
@@ -25,5 +31,5 @@ export function PrimaryButton({ loading, disabled, children, sx, ...props }: Pri
         children
       )}
     </MuiButton>
-  )
+  );
 }

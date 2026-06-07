@@ -1,52 +1,62 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { usePayments } from '@/hooks/usePayments'
-import { formatCurrency } from '@/lib/snowball'
-import type { Loan } from '@/types'
+import { useState } from 'react';
+import { usePayments } from '@/hooks/usePayments';
+import { formatCurrency } from '@/lib/snowball';
+import type { Loan } from '@/types';
+import { PrimaryButton } from './PrimaryButton';
+import { SecondaryButton } from './SecondaryButton';
+import { AppTextField } from './AppTextField';
+import { InputAdornment } from '@mui/material';
 
 interface PaymentButtonProps {
-  loan: Loan
-  onSuccess?: () => void
+  loan: Loan;
+  onSuccess?: () => void;
 }
 
 export function PaymentButtons({ loan, onSuccess }: PaymentButtonProps) {
-  const { makeMinPayment, makeExtraPayment, submitting } = usePayments()
-  const [showExtraInput, setShowExtraInput] = useState(false)
-  const [extraAmount, setExtraAmount] = useState('')
-  const [extraNote, setExtraNote] = useState('')
-  const [feedback, setFeedback] = useState<string | null>(null)
+  const { makeMinPayment, makeExtraPayment, submitting } = usePayments();
+  const [showExtraInput, setShowExtraInput] = useState(false);
+  const [extraAmount, setExtraAmount] = useState('');
+  const [extraNote, setExtraNote] = useState('');
+  const [feedback, setFeedback] = useState<string | null>(null);
 
   const handleMin = async () => {
-    const result = await makeMinPayment(loan)
+    const result = await makeMinPayment(loan);
     if (result.success) {
-      setFeedback(`✓ Payment of ${formatCurrency(loan.min_payment)} recorded`)
-      setTimeout(() => setFeedback(null), 3000)
-      onSuccess?.()
+      setFeedback(`✓ Payment of ${formatCurrency(loan.min_payment)} recorded`);
+      setTimeout(() => setFeedback(null), 3000);
+      onSuccess?.();
     }
-  }
+  };
 
   const handleExtra = async () => {
-    const amount = parseFloat(extraAmount)
-    if (isNaN(amount) || amount <= 0) return
-    const result = await makeExtraPayment(loan, amount, extraNote || undefined)
+    const amount = parseFloat(extraAmount);
+    if (isNaN(amount) || amount <= 0) return;
+    const result = await makeExtraPayment(loan, amount, extraNote || undefined);
     if (result.success) {
-      setFeedback(`✓ Extra payment of ${formatCurrency(amount)} recorded`)
-      setShowExtraInput(false)
-      setExtraAmount('')
-      setExtraNote('')
-      setTimeout(() => setFeedback(null), 3000)
-      onSuccess?.()
+      setFeedback(`✓ Extra payment of ${formatCurrency(amount)} recorded`);
+      setShowExtraInput(false);
+      setExtraAmount('');
+      setExtraNote('');
+      setTimeout(() => setFeedback(null), 3000);
+      onSuccess?.();
     }
-  }
+  };
 
   if (feedback) {
     return (
-      <div className="text-center py-3 px-4 rounded-xl text-sm font-medium"
-        style={{ background: 'rgba(16,212,126,0.1)', border: '1px solid rgba(16,212,126,0.3)', color: 'var(--accent-green)' }}>
+      <div
+        className="text-center py-3 px-4 rounded-xl text-sm font-medium"
+        style={{
+          background: 'rgba(16,212,126,0.1)',
+          border: '1px solid rgba(16,212,126,0.3)',
+          color: 'var(--accent-green)',
+        }}
+      >
         {feedback}
       </div>
-    )
+    );
   }
 
   return (
@@ -54,46 +64,59 @@ export function PaymentButtons({ loan, onSuccess }: PaymentButtonProps) {
       {!showExtraInput ? (
         <div className="flex gap-2">
           {/* Min payment button */}
-          <button
+          <PrimaryButton
             onClick={handleMin}
             disabled={submitting}
-            className="flex-1 py-3 rounded-xl font-medium text-sm transition-all duration-150 hover:scale-[1.02] active:scale-[0.97] disabled:opacity-50"
-            style={{
-              background: 'linear-gradient(135deg, var(--accent-green-dim), var(--accent-green))',
-              color: 'white',
-              boxShadow: '0 4px 15px rgba(16,212,126,0.25)',
-            }}
+            sx={{ flex: 1 }}
           >
-            {submitting ? 'Processing...' : `Pay Min · ${formatCurrency(loan.min_payment)}`}
-          </button>
-
-          {/* Extra payment button */}
-          <button
+            {submitting
+              ? 'Processing...'
+              : `Pay Min · ${formatCurrency(loan.min_payment)}`}
+          </PrimaryButton>
+          <SecondaryButton
             onClick={() => setShowExtraInput(true)}
             disabled={submitting}
-            className="px-4 py-3 rounded-xl font-medium text-sm transition-all duration-150 hover:scale-[1.02] active:scale-[0.97]"
-            style={{
-              background: 'var(--surface-2)',
-              border: '1px solid var(--border)',
-              color: 'var(--text-primary)',
-            }}
           >
             + Extra
-          </button>
+          </SecondaryButton>
         </div>
       ) : (
-        <div className="rounded-xl p-4 flex flex-col gap-3"
-          style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-          <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+        <div
+          className="rounded-xl p-4 flex flex-col gap-3"
+          style={{
+            background: 'var(--surface-2)',
+            border: '1px solid var(--border)',
+          }}
+        >
+          <p
+            className="text-sm font-medium"
+            style={{ color: 'var(--text-secondary)' }}
+          >
             Extra Principal Payment
           </p>
           <div className="flex gap-2">
             <div className="relative flex-1">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: 'var(--text-secondary)' }}>$</span>
+              <AppTextField
+                onChange={(e) => setExtraAmount(e.target.value)}
+                value={extraAmount}
+                type="number"
+                placeholder="0.00"
+                autoFocus
+                startAdornment={
+                  <InputAdornment position="start">$</InputAdornment>
+                }
+                sx={{ background: 'var(--surface)', borderRadius: '8px' }}
+              />
+              {/* <span
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-sm"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                $
+              </span>
               <input
                 type="number"
                 value={extraAmount}
-                onChange={e => setExtraAmount(e.target.value)}
+                onChange={(e) => setExtraAmount(e.target.value)}
                 placeholder="0.00"
                 className="w-full pl-7 pr-3 py-2.5 rounded-lg text-sm outline-none"
                 style={{
@@ -102,13 +125,13 @@ export function PaymentButtons({ loan, onSuccess }: PaymentButtonProps) {
                   color: 'var(--text-primary)',
                 }}
                 autoFocus
-              />
+              /> */}
             </div>
           </div>
           <input
             type="text"
             value={extraNote}
-            onChange={e => setExtraNote(e.target.value)}
+            onChange={(e) => setExtraNote(e.target.value)}
             placeholder="Note (optional)"
             className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
             style={{
@@ -118,24 +141,27 @@ export function PaymentButtons({ loan, onSuccess }: PaymentButtonProps) {
             }}
           />
           <div className="flex gap-2">
-            <button
+            <PrimaryButton
               onClick={handleExtra}
               disabled={submitting || !extraAmount}
-              className="flex-1 py-2.5 rounded-lg font-medium text-sm disabled:opacity-50"
-              style={{ background: 'var(--accent-green)', color: 'white' }}
+              sx={{ flex: 1 }}
+              size="small"
             >
               {submitting ? 'Processing...' : 'Apply Payment'}
-            </button>
-            <button
-              onClick={() => { setShowExtraInput(false); setExtraAmount(''); setExtraNote('') }}
-              className="px-4 py-2.5 rounded-lg text-sm"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+            </PrimaryButton>
+            <SecondaryButton
+              onClick={() => {
+                setShowExtraInput(false);
+                setExtraAmount('');
+                setExtraNote('');
+              }}
+              size="small"
             >
               Cancel
-            </button>
+            </SecondaryButton>
           </div>
         </div>
       )}
     </div>
-  )
+  );
 }

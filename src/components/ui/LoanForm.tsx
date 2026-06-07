@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useSupabase } from '@/components/providers/SupabaseProvider'
-import { parseRate, formatRate } from '@/lib/snowball'
+import { parseRate } from '@/lib/snowball'
 import type { Loan, LoanFormValues, InsertLoan, UpdateLoan } from '@/types'
 
 interface LoanFormProps {

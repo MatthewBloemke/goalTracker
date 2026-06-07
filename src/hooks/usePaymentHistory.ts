@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useSupabase } from '@/components/providers/SupabaseProvider'
 import type { Payment } from '@/types'
 
@@ -8,25 +8,42 @@ export function usePaymentHistory(loanId: string | null) {
   const { supabase } = useSupabase()
   const [payments, setPayments] = useState<Payment[]>([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const requestIdRef = useRef(0)
 
   const fetch = useCallback(async () => {
-    if (!loanId) return
+    const requestId = ++requestIdRef.current
+
+    if (!loanId) {
+      setPayments([])
+      setLoading(false)
+      setError(null)
+      return
+    }
+
     setLoading(true)
-    const { data } = await supabase
+    setError(null)
+
+    const { data, error: fetchError } = await supabase
       .from('payments')
       .select('*')
       .eq('loan_id', loanId)
       .order('paid_at', { ascending: false })
       .limit(50)
+
+    if (requestId !== requestIdRef.current) return
+    if (fetchError) {
+      setError(fetchError.message)
+      setLoading(false)
+      return
+    }
+
     setPayments((data ?? []) as Payment[])
     setLoading(false)
   }, [supabase, loanId])
 
   useEffect(() => {
-    let cancelled = false
-    const run = async () => { if (!cancelled) await fetch() }
-    run()
-    return () => { cancelled = true }
+    void Promise.resolve().then(() => fetch())
   }, [fetch])
 
   // Realtime
@@ -42,5 +59,5 @@ export function usePaymentHistory(loanId: string | null) {
     return () => { supabase.removeChannel(channel) }
   }, [supabase, loanId, fetch])
 
-  return { payments, loading, refetch: fetch }
+  return { payments, loading, error, refetch: fetch }
 }

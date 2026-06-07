@@ -9,47 +9,80 @@ const dmSans = DM_Sans({
   weight: ['300', '400', '500', '600', '700'],
 });
 
+const appColors = {
+  background: '#0c0e14',
+  surface: '#13161f',
+  surface2: '#1c2030',
+  border: '#252a3d',
+  textPrimary: '#eef0ff',
+  textSecondary: '#7880a0',
+  accentGreen: '#0fd67c',
+  accentGreenDim: '#0a8a52',
+  accentGreenGlow: 'rgba(15,214,124,0.15)',
+  accentAmber: '#f5a623',
+  accentRed: '#f04444',
+  accentBlue: '#5b5ff5',
+};
+
 const theme = createTheme({
   palette: {
     mode: 'dark',
     primary: {
-      main: '#0fd67c',
-      dark: '#0a8a52',
+      main: appColors.accentGreen,
+      dark: appColors.accentGreenDim,
       light: '#34d399',
       contrastText: '#000000',
     },
     secondary: {
-      main: '#5b5ff5',
+      main: appColors.accentBlue,
       contrastText: '#ffffff',
     },
     error: {
-      main: '#f04444',
+      main: appColors.accentRed,
     },
     warning: {
-      main: '#f5a623',
+      main: appColors.accentAmber,
     },
     background: {
-      default: '#0c0e14',
-      paper: '#13161f',
+      default: appColors.background,
+      paper: appColors.surface,
     },
     text: {
-      primary: '#eef0ff',
-      secondary: '#7880a0',
+      primary: appColors.textPrimary,
+      secondary: appColors.textSecondary,
     },
-    divider: '#252a3d',
+    divider: appColors.border,
   },
   typography: {
     fontFamily: dmSans.style.fontFamily,
+    button: {
+      textTransform: 'none',
+      fontWeight: 500,
+    },
   },
   shape: {
-    borderRadius: 12,
+    borderRadius: 8,
   },
   components: {
     MuiCssBaseline: {
       styleOverrides: {
+        ':root': {
+          '--background': appColors.background,
+          '--surface': appColors.surface,
+          '--surface-2': appColors.surface2,
+          '--border': appColors.border,
+          '--text-primary': appColors.textPrimary,
+          '--text-secondary': appColors.textSecondary,
+          '--accent-green': appColors.accentGreen,
+          '--accent-green-dim': appColors.accentGreenDim,
+          '--accent-green-glow': appColors.accentGreenGlow,
+          '--accent-amber': appColors.accentAmber,
+          '--accent-red': appColors.accentRed,
+          '--accent-blue': appColors.accentBlue,
+        },
         body: {
-          backgroundColor: '#0c0e14',
-          color: '#eef0ff',
+          backgroundColor: appColors.background,
+          color: appColors.textPrimary,
         },
       },
     },
@@ -62,9 +95,9 @@ const theme = createTheme({
           textTransform: 'none',
           fontWeight: 500,
           fontSize: '0.9375rem',
-          letterSpacing: '0.01em',
+          letterSpacing: 0,
           padding: '12px 24px',
-          borderRadius: '12px',
+          borderRadius: '8px',
           transition: 'all 0.15s ease',
           '&:hover': { transform: 'scale(1.02)' },
           '&:active': { transform: 'scale(0.98)' },
@@ -72,8 +105,8 @@ const theme = createTheme({
             {
               props: { variant: 'contained', color: 'primary' },
               style: {
-                background: 'linear-gradient(135deg, #0a8a52, #0fd67c)',
-                color: '#000',
+                background: `linear-gradient(135deg, ${appColors.accentGreenDim}, ${appColors.accentGreen})`,
+                color: 'white',
                 boxShadow: '0 4px 20px rgba(15,214,124,0.25)',
                 '&:hover': {
                   background: 'linear-gradient(135deg, #0b9e5e, #1ae889)',
@@ -85,9 +118,9 @@ const theme = createTheme({
               props: { variant: 'outlined', color: 'primary' },
               style: {
                 borderColor: 'rgba(15,214,124,0.4)',
-                color: '#0fd67c',
+                color: appColors.accentGreen,
                 '&:hover': {
-                  borderColor: '#0fd67c',
+                  borderColor: appColors.accentGreen,
                   background: 'rgba(15,214,124,0.06)',
                 },
               },
@@ -95,8 +128,8 @@ const theme = createTheme({
             {
               props: { variant: 'outlined', color: 'inherit' },
               style: {
-                borderColor: '#252a3d',
-                color: '#7880a0',
+                borderColor: appColors.border,
+                color: appColors.textSecondary,
                 '&:hover': {
                   borderColor: '#3a4060',
                   background: 'rgba(255,255,255,0.03)',
@@ -107,32 +140,26 @@ const theme = createTheme({
         },
       },
     },
-    MuiTextField: {
+    MuiOutlinedInput: {
       defaultProps: {
-        variant: 'outlined',
         fullWidth: true,
       },
       styleOverrides: {
         root: {
-          '& .MuiOutlinedInput-root': {
-            borderRadius: '10px',
-            background: '#0c0e14',
-            '& fieldset': {
-              borderColor: '#252a3d',
-            },
-            '&:hover fieldset': {
-              borderColor: '#3a4060',
-            },
-            '&.Mui-focused fieldset': {
-              borderColor: '#0fd67c',
-              borderWidth: '1px',
-            },
+          borderRadius: '8px',
+          background: appColors.background,
+          '& fieldset': {
+            borderColor: appColors.border,
           },
-          '& .MuiInputLabel-root.Mui-focused': {
-            color: '#0fd67c',
+          '&:hover fieldset': {
+            borderColor: '#3a4060',
+          },
+          '&.Mui-focused fieldset': {
+            borderColor: appColors.accentGreen,
+            borderWidth: '1px',
           },
           '& .MuiInputBase-input': {
-            color: '#eef0ff',
+            color: appColors.textPrimary,
           },
         },
       },
@@ -142,8 +169,8 @@ const theme = createTheme({
         root: {
           background: 'rgba(19, 22, 31, 0.85)',
           backdropFilter: 'blur(16px)',
-          border: '1px solid #252a3d',
-          borderRadius: '20px',
+          border: `1px solid ${appColors.border}`,
+          borderRadius: '8px',
           boxShadow: 'none',
         },
       },
@@ -151,9 +178,9 @@ const theme = createTheme({
     MuiPaper: {
       styleOverrides: {
         root: {
-          background: '#13161f',
-          border: '1px solid #252a3d',
-          borderRadius: '16px',
+          background: appColors.surface,
+          border: `1px solid ${appColors.border}`,
+          borderRadius: '8px',
           boxShadow: 'none',
         },
       },
@@ -161,7 +188,7 @@ const theme = createTheme({
     MuiDivider: {
       styleOverrides: {
         root: {
-          borderColor: '#252a3d',
+          borderColor: appColors.border,
         },
       },
     },
@@ -175,8 +202,8 @@ const theme = createTheme({
     MuiTooltip: {
       styleOverrides: {
         tooltip: {
-          background: '#1c2030',
-          border: '1px solid #252a3d',
+          background: appColors.surface2,
+          border: `1px solid ${appColors.border}`,
           fontSize: '12px',
         },
       },
@@ -185,11 +212,11 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: '4px',
-          background: '#1c2030',
+          background: appColors.surface2,
         },
         bar: {
           borderRadius: '4px',
-          background: 'linear-gradient(90deg, #0a8a52, #0fd67c)',
+          background: `linear-gradient(90deg, ${appColors.accentGreenDim}, ${appColors.accentGreen})`,
         },
       },
     },

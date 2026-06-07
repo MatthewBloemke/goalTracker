@@ -16,13 +16,19 @@ const typeLabel: Record<PaymentType, { label: string; color: string }> = {
 }
 
 export function PaymentHistory({ loanId }: PaymentHistoryProps) {
-  const { payments, loading } = usePaymentHistory(loanId)
+  const { payments, loading, error } = usePaymentHistory(loanId)
 
   if (loading) return (
     <div className="flex justify-center py-6">
       <div className="w-5 h-5 rounded-full border-2 animate-spin"
         style={{ borderColor: 'var(--accent-green)', borderTopColor: 'transparent' }} />
     </div>
+  )
+
+  if (error) return (
+    <p className="text-sm py-4 text-center" style={{ color: 'var(--accent-red)' }}>
+      {error}
+    </p>
   )
 
   if (payments.length === 0) return (

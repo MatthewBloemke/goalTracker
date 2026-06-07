@@ -78,6 +78,7 @@ export interface SnowballSummary {
   total_paid: number;
   percent_complete: number;
   debt_free_date: Date | null;
+  projected_total_interest: number;
   ordered_loans: LoanWithProjection[];
   current_target: LoanWithProjection | null;
   next_target: LoanWithProjection | null;

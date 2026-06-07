@@ -17,12 +17,21 @@ export function usePayments() {
       type: PaymentType,
       note?: string,
     ): Promise<{ success: boolean; payment?: Payment }> => {
-      if (!user) return { success: false };
+      if (!user) {
+        setError('Not authenticated');
+        return { success: false };
+      }
+      if (!Number.isFinite(amount) || amount <= 0) {
+        setError('Payment amount must be greater than 0');
+        return { success: false };
+      }
+
       setSubmitting(true);
       setError(null);
 
       try {
         const { balance_after } = applyPayment(loan, amount);
+        const roundedBalance = Math.round(balance_after * 100) / 100;
 
         // Insert payment record
         const paymentInsert: InsertPayment = {
@@ -31,7 +40,7 @@ export function usePayments() {
           amount,
           type,
           note: note ?? null,
-          balance_after,
+          balance_after: roundedBalance,
         };
         const { data: payment, error: paymentError } = await supabase
           .from('payments')
@@ -42,8 +51,8 @@ export function usePayments() {
         if (paymentError) throw paymentError;
 
         // Update loan balance
-        const updates: Partial<Loan> = { current_balance: balance_after };
-        if (balance_after === 0) {
+        const updates: Partial<Loan> = { current_balance: roundedBalance };
+        if (roundedBalance === 0) {
           updates.is_active = false;
           updates.paid_off_at = new Date().toISOString();
         }
