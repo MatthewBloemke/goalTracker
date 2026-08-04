@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
+import Button from '@mui/material/Button';
 import { useSupabase } from '@/components/providers/SupabaseProvider';
 import { useRouter } from 'next/navigation';
 import Logo from '../../../public/debtTracker.png';
@@ -78,16 +79,23 @@ export function NavShell({ children }: { children: React.ReactNode }) {
                 </Link>
               );
             })}
-            <button
+            <Button
               onClick={handleSignOut}
-              className="ml-2 px-3 py-1.5 rounded-lg text-xs transition-colors"
-              style={{
+              variant="outlined"
+              color="inherit"
+              size="small"
+              sx={{
+                ml: 1,
+                px: 1.5,
+                py: 0.75,
+                minWidth: 0,
+                fontSize: '0.75rem',
                 color: 'var(--text-secondary)',
                 border: '1px solid var(--border)',
               }}
             >
               Sign out
-            </button>
+            </Button>
           </nav>
         </div>
       </header>

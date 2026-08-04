@@ -1,8 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import Button from '@mui/material/Button';
 import { useFamily } from '@/hooks/useFamily';
 import { useSupabase } from '@/components/providers/SupabaseProvider';
+import { AppTextField } from '@/components/ui/AppTextField';
+import { PrimaryButton } from '@/components/ui/PrimaryButton';
+import { SecondaryButton } from '@/components/ui/SecondaryButton';
 
 export default function FamilyPage() {
   const { user } = useSupabase();
@@ -94,30 +98,46 @@ export default function FamilyPage() {
         {/* Choice buttons */}
         {!view && (
           <div className="flex flex-col gap-3">
-            <button
+            <Button
               onClick={() => setView('create')}
-              className="w-full py-4 rounded-2xl font-medium transition-all hover:scale-[1.01]"
-              style={{
+              color="inherit"
+              fullWidth
+              sx={{
+                py: 2,
+                display: 'block',
+                fontWeight: 500,
                 background: 'var(--surface)',
                 border: '1px solid var(--border)',
                 color: 'var(--text-primary)',
+                '&:hover': {
+                  background: 'var(--surface)',
+                  transform: 'scale(1.01)',
+                },
               }}
             >
               <span className="block text-2xl mb-1">🏠</span>
               Create a Family Group
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => setView('join')}
-              className="w-full py-4 rounded-2xl font-medium transition-all hover:scale-[1.01]"
-              style={{
+              color="inherit"
+              fullWidth
+              sx={{
+                py: 2,
+                display: 'block',
+                fontWeight: 500,
                 background: 'var(--surface)',
                 border: '1px solid var(--border)',
                 color: 'var(--text-primary)',
+                '&:hover': {
+                  background: 'var(--surface)',
+                  transform: 'scale(1.01)',
+                },
               }}
             >
               <span className="block text-2xl mb-1">🔗</span>
               Join with Invite Code
-            </button>
+            </Button>
           </div>
         )}
 
@@ -150,42 +170,30 @@ export default function FamilyPage() {
               >
                 Family Name
               </label>
-              <input
+              <AppTextField
                 value={familyName}
                 onChange={(e) => setFamilyName(e.target.value)}
                 placeholder="e.g. The Johnsons"
-                className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
-                style={{
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text-primary)',
-                }}
                 onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
               />
             </div>
             <div className="flex gap-3">
-              <button
+              <PrimaryButton
                 onClick={handleCreate}
                 disabled={submitting || !familyName.trim()}
-                className="flex-1 py-3 rounded-xl font-medium text-sm disabled:opacity-50"
-                style={{ background: 'var(--accent-green)', color: 'white' }}
+                sx={{ flex: 1 }}
               >
                 {submitting ? 'Creating...' : 'Create Group'}
-              </button>
-              <button
+              </PrimaryButton>
+              <SecondaryButton
                 onClick={() => {
                   setView(null);
                   setError(null);
                 }}
-                className="px-4 py-3 rounded-xl text-sm"
-                style={{
-                  background: 'var(--surface-2)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text-secondary)',
-                }}
+                sx={{ px: 2 }}
               >
                 Back
-              </button>
+              </SecondaryButton>
             </div>
           </div>
         )}
@@ -206,43 +214,37 @@ export default function FamilyPage() {
               >
                 Invite Code
               </label>
-              <input
+              <AppTextField
                 value={inviteCode}
                 onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                 placeholder="e.g. AB12CD34"
-                className="w-full px-3 py-2.5 rounded-lg text-sm outline-none font-mono tracking-widest"
-                style={{
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text-primary)',
+                inputProps={{ maxLength: 8 }}
+                sx={{
+                  '& input': {
+                    fontFamily: 'monospace',
+                    letterSpacing: '0.1em',
+                  },
                 }}
-                maxLength={8}
                 onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
               />
             </div>
             <div className="flex gap-3">
-              <button
+              <PrimaryButton
                 onClick={handleJoin}
                 disabled={submitting || inviteCode.length < 6}
-                className="flex-1 py-3 rounded-xl font-medium text-sm disabled:opacity-50"
-                style={{ background: 'var(--accent-green)', color: 'white' }}
+                sx={{ flex: 1 }}
               >
                 {submitting ? 'Joining...' : 'Join Group'}
-              </button>
-              <button
+              </PrimaryButton>
+              <SecondaryButton
                 onClick={() => {
                   setView(null);
                   setError(null);
                 }}
-                className="px-4 py-3 rounded-xl text-sm"
-                style={{
-                  background: 'var(--surface-2)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text-secondary)',
-                }}
+                sx={{ px: 2 }}
               >
                 Back
-              </button>
+              </SecondaryButton>
             </div>
           </div>
         )}
@@ -300,19 +302,29 @@ export default function FamilyPage() {
             >
               {family.invite_code}
             </p>
-            <button
+            <Button
               onClick={handleCopyCode}
-              className="ml-auto px-4 py-2 rounded-lg text-sm transition-all"
-              style={{
+              color="inherit"
+              size="small"
+              sx={{
+                ml: 'auto',
+                px: 2,
+                py: 1,
+                fontSize: '0.875rem',
                 background: copied
                   ? 'rgba(16,212,126,0.15)'
                   : 'var(--surface-2)',
                 border: `1px solid ${copied ? 'rgba(16,212,126,0.4)' : 'var(--border)'}`,
                 color: copied ? 'var(--accent-green)' : 'var(--text-secondary)',
+                '&:hover': {
+                  background: copied
+                    ? 'rgba(16,212,126,0.15)'
+                    : 'var(--surface-2)',
+                },
               }}
             >
               {copied ? '✓ Copied' : 'Copy'}
-            </button>
+            </Button>
           </div>
           <p
             className="text-xs mt-2"
@@ -398,29 +410,41 @@ export default function FamilyPage() {
                 {isAdmin && !isCurrentUser && (
                   <div className="flex items-center gap-2">
                     {member.role === 'member' && (
-                      <button
+                      <Button
                         onClick={() => handlePromote(member.id)}
-                        className="text-xs px-3 py-1.5 rounded-lg transition-colors"
-                        style={{
+                        color="inherit"
+                        size="small"
+                        sx={{
+                          px: 1.5,
+                          py: 0.75,
+                          minWidth: 0,
+                          fontSize: '0.75rem',
                           background: 'var(--surface-2)',
                           border: '1px solid var(--border)',
                           color: 'var(--text-secondary)',
+                          '&:hover': { background: 'var(--surface-2)' },
                         }}
                       >
                         Promote
-                      </button>
+                      </Button>
                     )}
-                    <button
+                    <Button
                       onClick={() => handleRemove(member.id)}
-                      className="text-xs px-3 py-1.5 rounded-lg transition-colors"
-                      style={{
+                      color="inherit"
+                      size="small"
+                      sx={{
+                        px: 1.5,
+                        py: 0.75,
+                        minWidth: 0,
+                        fontSize: '0.75rem',
                         background: 'rgba(239,68,68,0.08)',
                         border: '1px solid rgba(239,68,68,0.2)',
                         color: 'var(--accent-red)',
+                        '&:hover': { background: 'rgba(239,68,68,0.08)' },
                       }}
                     >
                       Remove
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>

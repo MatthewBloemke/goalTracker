@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Button from '@mui/material/Button';
 import {
   formatCurrency,
   formatRate,
@@ -170,11 +171,17 @@ export function LoanCard({
           {/* Tabs */}
           <div className="flex px-5 pt-4 gap-1">
             {(['overview', 'history'] as Tab[]).map((t) => (
-              <button
+              <Button
                 key={t}
                 onClick={() => setTab(t)}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors"
-                style={{
+                color="inherit"
+                size="small"
+                sx={{
+                  px: 1.5,
+                  py: 0.75,
+                  minWidth: 0,
+                  fontSize: '0.75rem',
+                  textTransform: 'capitalize',
                   background: tab === t ? 'var(--surface-2)' : 'transparent',
                   color:
                     tab === t ? 'var(--text-primary)' : 'var(--text-secondary)',
@@ -182,10 +189,13 @@ export function LoanCard({
                     tab === t
                       ? '1px solid var(--border)'
                       : '1px solid transparent',
+                  '&:hover': {
+                    background: tab === t ? 'var(--surface-2)' : 'rgba(255,255,255,0.03)',
+                  },
                 }}
               >
                 {t === 'history' ? 'Payment History' : 'Overview'}
-              </button>
+              </Button>
             ))}
           </div>
 
@@ -229,17 +239,21 @@ export function LoanCard({
                   <PaymentButtons loan={loan} onSuccess={onUpdate} />
                 )}
 
-                <button
+                <Button
                   onClick={() => setEditing(true)}
-                  className="w-full py-2.5 rounded-xl text-sm transition-colors"
-                  style={{
+                  color="inherit"
+                  fullWidth
+                  sx={{
+                    py: 1.25,
+                    fontSize: '0.875rem',
                     background: 'var(--surface-2)',
                     border: '1px solid var(--border)',
                     color: 'var(--text-secondary)',
+                    '&:hover': { background: 'var(--surface-2)' },
                   }}
                 >
                   Edit Loan Details
-                </button>
+                </Button>
               </div>
             )}
 

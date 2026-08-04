@@ -5,6 +5,7 @@ import Link from 'next/link';
 import dayjs from 'dayjs';
 import {
   Box,
+  Button,
   Card,
   InputAdornment,
   Stack,
@@ -121,13 +122,15 @@ export default function DashboardPage() {
             track your path to financial freedom.
           </p>
         </div>
-        <Link
+        <Button
+          component={Link}
           href="/loans"
-          className="px-6 py-3 rounded-xl font-medium text-sm transition-all hover:scale-[1.02]"
-          style={{ background: 'var(--accent-green)', color: 'white' }}
+          variant="contained"
+          color="primary"
+          sx={{ px: 3, py: 1.5 }}
         >
           Add Your First Loan
-        </Link>
+        </Button>
       </div>
     );
   }
@@ -156,17 +159,21 @@ export default function DashboardPage() {
               : ''}
           </p>
         </div>
-        <Link
+        <Button
+          component={Link}
           href="/loans"
-          className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-          style={{
+          variant="outlined"
+          color="inherit"
+          sx={{
+            px: 2,
+            py: 1,
             background: 'var(--surface-2)',
             border: '1px solid var(--border)',
             color: 'var(--text-secondary)',
           }}
         >
           Manage Loans
-        </Link>
+        </Button>
       </div>
 
       {/* Main thermometer + payment buttons */}

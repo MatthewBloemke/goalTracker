@@ -1,8 +1,12 @@
 'use client'
 
 import { useState } from 'react'
+import Button from '@mui/material/Button'
+import InputAdornment from '@mui/material/InputAdornment'
 import { useFamily } from '@/hooks/useFamily'
 import { useSupabase } from '@/components/providers/SupabaseProvider'
+import { AppTextField } from '@/components/ui/AppTextField'
+import { PrimaryButton } from '@/components/ui/PrimaryButton'
 import { formatCurrency } from '@/lib/snowball'
 import type { SnowballStrategy } from '@/types'
 
@@ -98,24 +102,20 @@ export default function SettingsPage() {
             </p>
             <div className="flex gap-3">
               <div className="relative flex-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: 'var(--text-secondary)' }}>$</span>
-                <input
+                <AppTextField
                   type="number"
                   value={extraBudget}
                   onChange={e => setExtraBudget(e.target.value)}
-                  min="0"
-                  step="50"
-                  className="w-full pl-7 pr-3 py-2.5 rounded-lg text-sm outline-none"
-                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                  inputProps={{ min: 0, step: '50' }}
+                  startAdornment={<InputAdornment position="start">$</InputAdornment>}
                 />
               </div>
-              <button
+              <PrimaryButton
                 onClick={handleBudgetSave}
-                className="px-5 py-2.5 rounded-lg text-sm font-medium"
-                style={{ background: 'var(--accent-green)', color: 'white' }}
+                sx={{ px: 2.5 }}
               >
                 Save
-              </button>
+              </PrimaryButton>
             </div>
             {Number(extraBudget) > 0 && (
               <p className="text-xs mt-2" style={{ color: 'var(--text-secondary)' }}>
@@ -155,12 +155,22 @@ function StrategyOption({
   active: boolean; onClick: () => void; title: string; description: string; emoji: string
 }) {
   return (
-    <button
+    <Button
       onClick={onClick}
-      className="flex items-start gap-3 p-4 rounded-xl text-left transition-all"
-      style={{
+      color="inherit"
+      fullWidth
+      sx={{
+        alignItems: 'flex-start',
+        display: 'flex',
+        gap: 1.5,
+        justifyContent: 'flex-start',
+        p: 2,
+        textAlign: 'left',
         background: active ? 'rgba(16,212,126,0.08)' : 'var(--surface)',
         border: `1px solid ${active ? 'rgba(16,212,126,0.4)' : 'var(--border)'}`,
+        '&:hover': {
+          background: active ? 'rgba(16,212,126,0.1)' : 'var(--surface)',
+        },
       }}
     >
       <span className="text-xl flex-shrink-0">{emoji}</span>
@@ -176,6 +186,6 @@ function StrategyOption({
           <path d="M20 6L9 17l-5-5"/>
         </svg>
       )}
-    </button>
+    </Button>
   )
 }

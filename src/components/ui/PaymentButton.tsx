@@ -107,38 +107,13 @@ export function PaymentButtons({ loan, onSuccess }: PaymentButtonProps) {
                 }
                 sx={{ background: 'var(--surface)', borderRadius: '8px' }}
               />
-              {/* <span
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-sm"
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                $
-              </span>
-              <input
-                type="number"
-                value={extraAmount}
-                onChange={(e) => setExtraAmount(e.target.value)}
-                placeholder="0.00"
-                className="w-full pl-7 pr-3 py-2.5 rounded-lg text-sm outline-none"
-                style={{
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text-primary)',
-                }}
-                autoFocus
-              /> */}
             </div>
           </div>
-          <input
-            type="text"
+          <AppTextField
             value={extraNote}
             onChange={(e) => setExtraNote(e.target.value)}
             placeholder="Note (optional)"
-            className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
-            style={{
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              color: 'var(--text-primary)',
-            }}
+            sx={{ background: 'var(--surface)', borderRadius: '8px' }}
           />
           <div className="flex gap-2">
             <PrimaryButton

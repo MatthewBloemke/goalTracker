@@ -1,8 +1,12 @@
 'use client'
 
 import { useState } from 'react'
+import InputAdornment from '@mui/material/InputAdornment'
 import { useSupabase } from '@/components/providers/SupabaseProvider'
 import { parseRate } from '@/lib/snowball'
+import { AppTextField } from './AppTextField'
+import { PrimaryButton } from './PrimaryButton'
+import { SecondaryButton } from './SecondaryButton'
 import type { Loan, LoanFormValues, InsertLoan, UpdateLoan } from '@/types'
 
 interface LoanFormProps {
@@ -40,7 +44,7 @@ export function LoanForm({ loan, familyId, onSuccess, onCancel }: LoanFormProps)
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState<Partial<LoanFormValues>>({})
 
-  const set = (field: keyof LoanFormValues) => (e: React.ChangeEvent<HTMLInputElement>) =>
+  const set = (field: keyof LoanFormValues) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm(prev => ({ ...prev, [field]: e.target.value }))
 
   const validate = (): boolean => {
@@ -87,11 +91,11 @@ export function LoanForm({ loan, familyId, onSuccess, onCancel }: LoanFormProps)
   return (
     <div className="flex flex-col gap-5">
       <Field label="Loan Name *" error={errors.name}>
-        <input value={form.name} onChange={set('name')} placeholder="e.g. Student Loan" {...inputProps} />
+        <AppTextField value={form.name} onChange={set('name')} placeholder="e.g. Student Loan" />
       </Field>
 
       <Field label="Lender">
-        <input value={form.lender} onChange={set('lender')} placeholder="e.g. Sallie Mae" {...inputProps} />
+        <AppTextField value={form.lender} onChange={set('lender')} placeholder="e.g. Sallie Mae" />
       </Field>
 
       <div className="grid grid-cols-2 gap-4">
@@ -105,19 +109,14 @@ export function LoanForm({ loan, familyId, onSuccess, onCancel }: LoanFormProps)
 
       <div className="grid grid-cols-2 gap-4">
         <Field label="Interest Rate (APR) *" error={errors.interest_rate}>
-          <div className="relative">
-            <input
-              value={form.interest_rate}
-              onChange={set('interest_rate')}
-              placeholder="5.25"
-              type="number"
-              step="0.01"
-              min="0"
-              {...inputProps}
-              className={`${inputProps.className} pr-8`}
-            />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: 'var(--text-secondary)' }}>%</span>
-          </div>
+          <AppTextField
+            value={form.interest_rate}
+            onChange={set('interest_rate')}
+            placeholder="5.25"
+            type="number"
+            inputProps={{ step: '0.01', min: 0 }}
+            endAdornment={<InputAdornment position="end">%</InputAdornment>}
+          />
         </Field>
         <Field label="Min Monthly Payment *" error={errors.min_payment}>
           <CurrencyInput value={form.min_payment} onChange={set('min_payment')} placeholder="150" />
@@ -125,21 +124,19 @@ export function LoanForm({ loan, familyId, onSuccess, onCancel }: LoanFormProps)
       </div>
 
       <div className="flex gap-3 pt-2">
-        <button
+        <PrimaryButton
           onClick={handleSubmit}
           disabled={submitting}
-          className="flex-1 py-3 rounded-xl font-medium text-sm transition-all hover:scale-[1.02] active:scale-[0.97] disabled:opacity-50"
-          style={{ background: 'var(--accent-green)', color: 'white' }}
+          sx={{ flex: 1 }}
         >
           {submitting ? 'Saving...' : loan ? 'Save Changes' : 'Add Loan'}
-        </button>
-        <button
+        </PrimaryButton>
+        <SecondaryButton
           onClick={onCancel}
-          className="px-5 py-3 rounded-xl text-sm"
-          style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+          sx={{ px: 5 }}
         >
           Cancel
-        </button>
+        </SecondaryButton>
       </div>
     </div>
   )
@@ -159,29 +156,15 @@ function Field({ label, error, children }: { label: string; error?: string; chil
   )
 }
 
-function CurrencyInput({ value, onChange, placeholder }: { value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; placeholder: string }) {
+function CurrencyInput({ value, onChange, placeholder }: { value: string; onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void; placeholder: string }) {
   return (
-    <div className="relative">
-      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: 'var(--text-secondary)' }}>$</span>
-      <input
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        type="number"
-        step="0.01"
-        min="0"
-        {...inputProps}
-        className={`${inputProps.className} pl-7`}
-      />
-    </div>
+    <AppTextField
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      type="number"
+      inputProps={{ step: '0.01', min: 0 }}
+      startAdornment={<InputAdornment position="start">$</InputAdornment>}
+    />
   )
-}
-
-const inputProps = {
-  className: 'w-full px-3 py-2.5 rounded-lg text-sm outline-none focus:ring-1',
-  style: {
-    background: 'var(--surface)',
-    border: '1px solid var(--border)',
-    color: 'var(--text-primary)',
-  } as React.CSSProperties,
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Button from '@mui/material/Button'
 import { useFamily } from '@/hooks/useFamily'
 import { useLoans } from '@/hooks/useLoans'
 import { LoanCard } from '@/components/ui/LoanCard'
@@ -41,16 +42,17 @@ export default function LoansPage() {
             </p>
           )}
         </div>
-        <button
+        <Button
           onClick={() => setShowAddForm(v => !v)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all hover:scale-[1.02]"
-          style={{ background: 'var(--accent-green)', color: 'white' }}
+          variant="contained"
+          color="primary"
+          sx={{ px: 2, py: 1.25, gap: 1 }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
             <path d="M12 5v14M5 12h14"/>
           </svg>
           Add Loan
-        </button>
+        </Button>
       </div>
 
       {/* Add loan form */}
@@ -99,17 +101,26 @@ export default function LoansPage() {
       {/* Paid off loans */}
       {paidOffLoans.length > 0 && (
         <div>
-          <button
+          <Button
             onClick={() => setShowPaidOff(v => !v)}
-            className="flex items-center gap-2 text-sm mb-3"
-            style={{ color: 'var(--text-secondary)' }}
+            color="inherit"
+            sx={{
+              alignItems: 'center',
+              color: 'var(--text-secondary)',
+              display: 'inline-flex',
+              gap: 1,
+              mb: 1.5,
+              minWidth: 0,
+              p: 0,
+              '&:hover': { background: 'transparent' },
+            }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
               style={{ transform: showPaidOff ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
               <path d="M9 18l6-6-6-6"/>
             </svg>
             {paidOffLoans.length} paid off loan{paidOffLoans.length !== 1 ? 's' : ''}
-          </button>
+          </Button>
 
           {showPaidOff && (
             <div className="flex flex-col gap-3">
