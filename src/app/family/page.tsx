@@ -218,7 +218,7 @@ export default function FamilyPage() {
                 value={inviteCode}
                 onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                 placeholder="e.g. AB12CD34"
-                inputProps={{ maxLength: 8 }}
+                slotProps={{ htmlInput: { maxLength: 8 } }}
                 sx={{
                   '& input': {
                     fontFamily: 'monospace',

@@ -11,6 +11,15 @@ export type Loan = Database['public']['Tables']['loans']['Row'];
 export type Payment = Database['public']['Tables']['payments']['Row'];
 export type FamilySettings =
   Database['public']['Tables']['family_settings']['Row'];
+export type BudgetGroup = Database['public']['Tables']['budget_groups']['Row'];
+export type BudgetCategory = Database['public']['Tables']['budget_categories']['Row'];
+export type MonthlyBudget = Database['public']['Tables']['monthly_budgets']['Row'];
+export type MonthlyBudgetAllocation =
+  Database['public']['Tables']['monthly_budget_allocations']['Row'];
+export type BudgetTransaction =
+  Database['public']['Tables']['budget_transactions']['Row'];
+export type BudgetTransactionSplit =
+  Database['public']['Tables']['budget_transaction_splits']['Row'];
 
 // INSERT TYPES — for writing to the DB
 export type InsertLoan = Database['public']['Tables']['loans']['Insert'];

@@ -3,10 +3,10 @@
 import { useState } from 'react'
 import InputAdornment from '@mui/material/InputAdornment'
 import { useSupabase } from '@/components/providers/SupabaseProvider'
-import { parseRate } from '@/lib/snowball'
-import { AppTextField } from './AppTextField'
-import { PrimaryButton } from './PrimaryButton'
-import { SecondaryButton } from './SecondaryButton'
+import { parseRate } from '@/app/budget/_lib/snowball'
+import { AppTextField } from '@/components/ui/AppTextField'
+import { PrimaryButton } from '@/components/ui/PrimaryButton'
+import { SecondaryButton } from '@/components/ui/SecondaryButton'
 import type { Loan, LoanFormValues, InsertLoan, UpdateLoan } from '@/types'
 
 interface LoanFormProps {
@@ -114,8 +114,10 @@ export function LoanForm({ loan, familyId, onSuccess, onCancel }: LoanFormProps)
             onChange={set('interest_rate')}
             placeholder="5.25"
             type="number"
-            inputProps={{ step: '0.01', min: 0 }}
-            endAdornment={<InputAdornment position="end">%</InputAdornment>}
+            slotProps={{
+              htmlInput: { step: '0.01', min: 0 },
+              input: { endAdornment: <InputAdornment position="end">%</InputAdornment> },
+            }}
           />
         </Field>
         <Field label="Min Monthly Payment *" error={errors.min_payment}>
@@ -163,8 +165,10 @@ function CurrencyInput({ value, onChange, placeholder }: { value: string; onChan
       onChange={onChange}
       placeholder={placeholder}
       type="number"
-      inputProps={{ step: '0.01', min: 0 }}
-      startAdornment={<InputAdornment position="start">$</InputAdornment>}
+      slotProps={{
+        htmlInput: { step: '0.01', min: 0 },
+        input: { startAdornment: <InputAdornment position="start">$</InputAdornment> },
+      }}
     />
   )
 }

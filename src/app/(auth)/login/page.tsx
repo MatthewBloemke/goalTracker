@@ -2,8 +2,6 @@
 
 import { useSupabase } from '@/components/providers/SupabaseProvider';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Image from 'next/image';
-import Logo from '../../../../public/debtTracker.png';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -96,13 +94,25 @@ function LoginContent() {
             textAlign: 'center',
           }}
         >
-          <Image
-            src={Logo}
-            alt="Debt Tracker"
-            width={124}
-            height={124}
-            style={{ borderRadius: '26px' }}
-          />
+          <div
+            style={{
+              alignItems: 'center',
+              background: 'var(--accent-green-glow)',
+              border: '1px solid rgba(15,214,124,0.3)',
+              borderRadius: '26px',
+              color: 'var(--accent-green)',
+              display: 'flex',
+              height: '104px',
+              justifyContent: 'center',
+              width: '104px',
+            }}
+          >
+            <svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="m3 11 9-8 9 8" />
+              <path d="M5 10v10h14V10" />
+              <path d="M9 20v-6h6v6" />
+            </svg>
+          </div>
           <div>
             <Typography
               style={{
@@ -113,7 +123,7 @@ function LoginContent() {
                 lineHeight: 1.15,
               }}
             >
-              Debt Tracker
+              Family Portal
             </Typography>
             <Typography
               style={{
@@ -123,7 +133,7 @@ function LoginContent() {
                 letterSpacing: '0.01em',
               }}
             >
-              Visualize your path to financial freedom
+              One shared place for the practical parts of family life
             </Typography>
           </div>
         </div>

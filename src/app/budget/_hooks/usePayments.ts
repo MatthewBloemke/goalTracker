@@ -2,8 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { useSupabase } from '@/components/providers/SupabaseProvider';
-import { applyPayment } from '@/lib/snowball';
-import type { Loan, Payment, PaymentType, InsertPayment } from '@/types';
+import type { Loan, Payment, PaymentType } from '@/types';
 
 export function usePayments() {
   const { supabase, user } = useSupabase();
@@ -30,39 +29,23 @@ export function usePayments() {
       setError(null);
 
       try {
-        const { balance_after } = applyPayment(loan, amount);
-        const roundedBalance = Math.round(balance_after * 100) / 100;
-
-        // Insert payment record
-        const paymentInsert: InsertPayment = {
-          loan_id: loan.id,
-          user_id: user.id,
-          amount,
-          type,
-          note: note ?? null,
-          balance_after: roundedBalance,
-        };
-        const { data: payment, error: paymentError } = await supabase
-          .from('payments')
-          .insert(paymentInsert)
-          .select()
-          .single();
-
+        const { data: paymentId, error: paymentError } = await supabase.rpc(
+          'record_loan_payment',
+          {
+            target_loan_id: loan.id,
+            payment_amount: amount,
+            payment_kind: type,
+            payment_note: note ?? null,
+          },
+        );
         if (paymentError) throw paymentError;
 
-        // Update loan balance
-        const updates: Partial<Loan> = { current_balance: roundedBalance };
-        if (roundedBalance === 0) {
-          updates.is_active = false;
-          updates.paid_off_at = new Date().toISOString();
-        }
-
-        const { error: loanError } = await supabase
-          .from('loans')
-          .update(updates)
-          .eq('id', loan.id);
-
-        if (loanError) throw loanError;
+        const { data: payment, error: fetchError } = await supabase
+          .from('payments')
+          .select('*')
+          .eq('id', paymentId)
+          .single();
+        if (fetchError) throw fetchError;
 
         return { success: true, payment: payment as Payment };
       } catch (err) {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useSupabase } from '@/components/providers/SupabaseProvider';
-import { buildSnowballSummary } from '@/lib/snowball';
+import { buildSnowballSummary } from '@/app/budget/_lib/snowball';
 import type { Loan, SnowballSummary, SnowballStrategy } from '@/types';
 
 interface UseLoansOptions {

@@ -1,4 +1,8 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Family Portal
+
+Family Portal is a shared household app with budgeting, debt tracking, and room for additional family modules.
+
+Setup for the optional AI receipt-processing Edge Function is documented in [docs/receipt-scanning.md](docs/receipt-scanning.md).
 
 ## Getting Started
 

@@ -7,7 +7,7 @@
 
 /* Glass utility */
 .glass {
-  background: rgba(19, 22, 31, 0.85) !important;
+  background: var(--glass) !important;
   backdrop-filter: blur(16px) !important;
   -webkit-backdrop-filter: blur(16px) !important;
   border: 1px solid var(--border) !important;
@@ -21,3 +21,9 @@
 }
 .animate-fade-up { animation: fadeUp 0.35s ease both; }
 .animate-spin    { animation: spin 1s linear infinite; }
+
+/* Financial figures and other data values should remain easy to scan. */
+.numeric-value {
+  font-family: var(--font-sans), sans-serif;
+  font-variant-numeric: tabular-nums;
+}

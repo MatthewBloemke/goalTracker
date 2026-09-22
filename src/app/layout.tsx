@@ -12,21 +12,21 @@ const dmSans = DM_Sans({
 })
 
 export const metadata: Metadata = {
-  title: 'Debt Snowball',
-  description: 'Track and crush your debt with the snowball method',
+  title: 'Family Portal',
+  description: 'Shared tools for family finances, meals, media, and household projects',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={dmSans.variable}>
       <body>
-        <MuiProvider>
-          <SupabaseProvider>
+        <SupabaseProvider>
+          <MuiProvider>
             <NavShell>
               {children}
             </NavShell>
-          </SupabaseProvider>
-        </MuiProvider>
+          </MuiProvider>
+        </SupabaseProvider>
       </body>
     </html>
   )

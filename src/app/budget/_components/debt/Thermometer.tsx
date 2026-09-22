@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { formatCurrency, formatMonthsRemaining } from '@/lib/snowball';
+import { formatCurrency, formatMonthsRemaining } from '@/app/budget/_lib/snowball';
 import type { LoanWithProjection } from '@/types';
 import dayjs from 'dayjs';
 import Typography from '@mui/material/Typography';
@@ -334,6 +334,8 @@ function StatBlock({
         style={{
           fontSize: '20px',
           fontWeight: 600,
+          fontFamily: 'var(--font-sans), sans-serif',
+          fontVariantNumeric: 'tabular-nums',
           color,
           letterSpacing: '-0.3px',
           lineHeight: 1.2,

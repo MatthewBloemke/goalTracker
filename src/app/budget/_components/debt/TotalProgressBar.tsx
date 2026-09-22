@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { formatCurrency } from '@/lib/snowball'
+import { formatCurrency } from '@/app/budget/_lib/snowball'
 import type { SnowballSummary } from '@/types'
 import dayjs from 'dayjs'
 
@@ -38,7 +38,7 @@ export function TotalProgressBar({ summary }: TotalProgressBarProps) {
           <p className="text-xs tracking-widest uppercase font-medium" style={{ color: 'var(--text-secondary)' }}>
             Total Debt Eliminated
           </p>
-          <p className="font-serif text-2xl mt-0.5" style={{ color: 'var(--accent-green)' }}>
+          <p className="numeric-value text-2xl mt-0.5 font-medium" style={{ color: 'var(--accent-green)' }}>
             {formatCurrency(summary.total_paid)}
             <span className="text-sm font-sans ml-2" style={{ color: 'var(--text-secondary)' }}>
               of {formatCurrency(summary.total_original)}
@@ -47,7 +47,7 @@ export function TotalProgressBar({ summary }: TotalProgressBarProps) {
         </div>
         <div className="text-right">
           <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Debt-Free Date</p>
-          <p className="font-serif text-lg" style={{ color: 'var(--text-primary)' }}>{debtFreeText}</p>
+          <p className="numeric-value text-lg font-medium" style={{ color: 'var(--text-primary)' }}>{debtFreeText}</p>
         </div>
       </div>
 

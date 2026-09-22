@@ -1,12 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { usePayments } from '@/hooks/usePayments';
-import { formatCurrency } from '@/lib/snowball';
+import { usePayments } from '@/app/budget/_hooks/usePayments';
+import { formatCurrency } from '@/app/budget/_lib/snowball';
 import type { Loan } from '@/types';
-import { PrimaryButton } from './PrimaryButton';
-import { SecondaryButton } from './SecondaryButton';
-import { AppTextField } from './AppTextField';
+import { PrimaryButton } from '@/components/ui/PrimaryButton';
+import { SecondaryButton } from '@/components/ui/SecondaryButton';
+import { AppTextField } from '@/components/ui/AppTextField';
 import { InputAdornment } from '@mui/material';
 
 interface PaymentButtonProps {
@@ -102,9 +102,7 @@ export function PaymentButtons({ loan, onSuccess }: PaymentButtonProps) {
                 type="number"
                 placeholder="0.00"
                 autoFocus
-                startAdornment={
-                  <InputAdornment position="start">$</InputAdornment>
-                }
+                slotProps={{ input: { startAdornment: <InputAdornment position="start">$</InputAdornment> } }}
                 sx={{ background: 'var(--surface)', borderRadius: '8px' }}
               />
             </div>

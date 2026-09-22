@@ -6,7 +6,7 @@ import {
   formatCurrency,
   formatRate,
   formatMonthsRemaining,
-} from '@/lib/snowball';
+} from '@/app/budget/_lib/snowball';
 import { PaymentButtons } from './PaymentButton';
 import { LoanForm } from './LoanForm';
 import { PaymentHistory } from './PaymentHistory';
@@ -108,7 +108,7 @@ export function LoanCard({
 
         <div className="text-right shrink-0">
           <p
-            className="font-serif text-lg"
+            className="numeric-value text-lg font-medium"
             style={{
               color: isPaidOff ? 'var(--accent-green)' : 'var(--text-primary)',
             }}
@@ -116,7 +116,7 @@ export function LoanCard({
             {formatCurrency(loan.current_balance)}
           </p>
           <p
-            className="text-xs mt-0.5"
+            className="numeric-value text-xs mt-0.5"
             style={{ color: 'var(--text-secondary)' }}
           >
             {percentPaid.toFixed(1)}% paid
@@ -301,7 +301,7 @@ function Stat({
         {label}
       </p>
       <p
-        className="text-sm font-medium"
+        className="numeric-value text-sm font-medium"
         style={{ color: dim ? 'var(--text-secondary)' : 'var(--text-primary)' }}
       >
         {value}

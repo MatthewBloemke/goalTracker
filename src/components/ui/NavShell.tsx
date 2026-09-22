@@ -1,175 +1,120 @@
-'use client';
+'use client'
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import Image from 'next/image';
-import Button from '@mui/material/Button';
-import { useSupabase } from '@/components/providers/SupabaseProvider';
-import { useRouter } from 'next/navigation';
-import Logo from '../../../public/debtTracker.png';
+import Link from 'next/link'
+import { usePathname, useRouter } from 'next/navigation'
+import Button from '@mui/material/Button'
+import { useSupabase } from '@/components/providers/SupabaseProvider'
+import { portalModules } from '@/lib/portal-modules'
 
-const navItems = [
-  { href: '/', label: 'Dashboard', icon: DashIcon },
-  { href: '/loans', label: 'Loans', icon: LoansIcon },
-  { href: '/family', label: 'Family', icon: FamilyIcon },
-  { href: '/settings', label: 'Settings', icon: SettingsIcon },
-];
-
-const hideNavOn = ['/login'];
+const hideNavOn = ['/login']
 
 export function NavShell({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const { supabase, user } = useSupabase();
-  const router = useRouter();
+  const pathname = usePathname()
+  const { supabase, user } = useSupabase()
+  const router = useRouter()
 
-  const showNav = user && !hideNavOn.includes(pathname);
+  const showNav = user && !hideNavOn.includes(pathname)
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.push('/login');
-  };
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
 
   if (!showNav) {
-    return <>{children}</>;
+    return <>{children}</>
   }
 
   return (
-    <div
-      className="min-h-screen flex flex-col"
-      style={{ background: 'var(--background)' }}
-    >
-      <header
-        className="sticky top-0 z-50 glass border-b"
-        style={{ borderColor: 'var(--border)' }}
-      >
-        <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <Image
-              src={Logo}
-              alt="Debt Tracker"
-              width={48}
-              height={48}
-              style={{ borderRadius: '26px' }}
-            />
-            <span
-              className="font-serif text-lg"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              Debt Snowball
-            </span>
+    <div className="flex min-h-screen flex-col bg-[var(--background)]">
+      <header className="glass sticky top-0 z-50 border-b border-[var(--border)]">
+        <div className="mx-auto flex min-h-16 max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2">
+          <Link href="/" className="mr-auto flex items-center gap-2.5" aria-label="Family Portal home">
+            <PortalMark />
+            <span className="font-serif text-lg text-[var(--text-primary)]">Family Portal</span>
           </Link>
 
-          <nav className="flex items-center gap-1">
-            {navItems.map(({ href, label, icon: Icon }) => {
-              const active = pathname === href;
+          <nav className="order-3 flex w-full items-center gap-1 overflow-x-auto sm:order-2 sm:w-auto" aria-label="Portal modules">
+            {portalModules.map((module) => {
+              const active = pathname === module.href || pathname.startsWith(`${module.href}/`)
               return (
                 <Link
-                  key={href}
-                  href={href}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                  key={module.href}
+                  href={module.href}
+                  className="whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors"
                   style={{
-                    color: active
-                      ? 'var(--accent-green)'
-                      : 'var(--text-secondary)',
-                    background: active ? 'rgba(16,212,126,0.1)' : 'transparent',
+                    color: active ? module.accent : 'var(--text-secondary)',
+                    background: active ? `${module.accent}16` : 'transparent',
                   }}
                 >
-                  <Icon />
-                  <span className="hidden sm:inline">{label}</span>
+                  <span className="sm:hidden lg:inline">{module.name}</span>
+                  <span className="hidden sm:inline lg:hidden">{module.shortName}</span>
                 </Link>
-              );
+              )
             })}
+          </nav>
+
+          <div className="order-2 flex items-center gap-1 sm:order-3">
+            <Link
+              href="/family"
+              className="rounded-lg p-2 text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--text-primary)]"
+              aria-label="Family members"
+              title="Family members"
+            >
+              <FamilyIcon />
+            </Link>
+            <Link
+              href="/settings"
+              className="rounded-lg p-2 text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--text-primary)]"
+              aria-label="Portal settings"
+              title="Settings"
+            >
+              <SettingsIcon />
+            </Link>
             <Button
               onClick={handleSignOut}
               variant="outlined"
               color="inherit"
               size="small"
-              sx={{
-                ml: 1,
-                px: 1.5,
-                py: 0.75,
-                minWidth: 0,
-                fontSize: '0.75rem',
-                color: 'var(--text-secondary)',
-                border: '1px solid var(--border)',
-              }}
+              sx={{ minWidth: 0, px: 1.5, py: 0.75, fontSize: '0.75rem' }}
             >
               Sign out
             </Button>
-          </nav>
+          </div>
         </div>
       </header>
 
-      <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-8">
-        {children}
-      </main>
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
     </div>
-  );
+  )
 }
 
-function DashIcon() {
+function PortalMark() {
   return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-    >
-      <rect x="3" y="3" width="7" height="7" />
-      <rect x="14" y="3" width="7" height="7" />
-      <rect x="3" y="14" width="7" height="7" />
-      <rect x="14" y="14" width="7" height="7" />
-    </svg>
-  );
+    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--accent-green-glow)] text-[var(--accent-green)]">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="m3 11 9-8 9 8" />
+        <path d="M5 10v10h14V10" />
+        <path d="M9 20v-6h6v6" />
+      </svg>
+    </span>
+  )
 }
-function LoansIcon() {
-  return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-    >
-      <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-    </svg>
-  );
-}
+
 function FamilyIcon() {
   return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-    >
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
       <circle cx="9" cy="7" r="4" />
       <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
     </svg>
-  );
+  )
 }
+
 function SettingsIcon() {
   return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-    >
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+      <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.09a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15 1.7 1.7 0 0 0 3.04 14H3v-4h.09A1.7 1.7 0 0 0 4.65 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6 1.7 1.7 0 0 0 10 3.04V3h4v.09A1.7 1.7 0 0 0 15 4.65a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9 1.7 1.7 0 0 0 20.96 10H21v4h-.09A1.7 1.7 0 0 0 19.4 15Z" />
     </svg>
-  );
+  )
 }

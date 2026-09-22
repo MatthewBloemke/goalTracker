@@ -9,7 +9,9 @@ const config: Config = {
   clearMocks: true,
   collectCoverageFrom: [
     'src/lib/**/*.{ts,tsx}',
+    'src/app/**/_lib/**/*.{ts,tsx}',
     '!src/lib/supabase/**',
+    '!src/app/**/_lib/**/*.test.{ts,tsx}',
   ],
   coverageDirectory: 'coverage',
   coverageProvider: 'v8',

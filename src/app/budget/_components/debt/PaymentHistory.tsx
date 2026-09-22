@@ -1,7 +1,7 @@
 'use client'
 
-import { usePaymentHistory } from '@/hooks/usePaymentHistory'
-import { formatCurrency } from '@/lib/snowball'
+import { usePaymentHistory } from '@/app/budget/_hooks/usePaymentHistory'
+import { formatCurrency } from '@/app/budget/_lib/snowball'
 import dayjs from 'dayjs'
 import type { PaymentType } from '@/types'
 
@@ -57,7 +57,7 @@ export function PaymentHistory({ loanId }: PaymentHistoryProps) {
 
             {/* Date + note */}
             <div className="flex-1 min-w-0">
-              <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
+              <p className="numeric-value text-sm" style={{ color: 'var(--text-primary)' }}>
                 {dayjs(payment.paid_at).format('MMM D, YYYY')}
               </p>
               {payment.note && (
@@ -69,10 +69,10 @@ export function PaymentHistory({ loanId }: PaymentHistoryProps) {
 
             {/* Amount + balance after */}
             <div className="text-right flex-shrink-0">
-              <p className="text-sm font-medium" style={{ color: 'var(--accent-green)' }}>
+              <p className="numeric-value text-sm font-medium" style={{ color: 'var(--accent-green)' }}>
                 -{formatCurrency(payment.amount)}
               </p>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+              <p className="numeric-value text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
                 → {formatCurrency(payment.balance_after)}
               </p>
             </div>

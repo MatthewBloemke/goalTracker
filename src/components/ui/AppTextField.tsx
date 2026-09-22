@@ -1,9 +1,8 @@
-'use client';
+'use client'
 
-import { OutlinedInput, OutlinedInputProps } from '@mui/material';
+import TextField, { type TextFieldProps } from '@mui/material/TextField'
 
-// Thin wrapper that sets our preferred defaults so callsites stay clean.
-// All MUI TextField props pass through unchanged.
-export function AppTextField(props: OutlinedInputProps) {
-  return <OutlinedInput fullWidth size="small" {...props} />;
+/** Shared Material UI text field with the Family Portal defaults. */
+export function AppTextField(props: TextFieldProps) {
+  return <TextField fullWidth size="small" variant="outlined" {...props} />
 }

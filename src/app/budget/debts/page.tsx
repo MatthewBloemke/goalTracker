@@ -3,10 +3,10 @@
 import { useState } from 'react'
 import Button from '@mui/material/Button'
 import { useFamily } from '@/hooks/useFamily'
-import { useLoans } from '@/hooks/useLoans'
-import { LoanCard } from '@/components/ui/LoanCard'
-import { LoanForm } from '@/components/ui/LoanForm'
-import { formatCurrency } from '@/lib/snowball'
+import { useLoans } from '@/app/budget/_hooks/useLoans'
+import { LoanCard } from '@/app/budget/_components/debt/LoanCard'
+import { LoanForm } from '@/app/budget/_components/debt/LoanForm'
+import { formatCurrency } from '@/app/budget/_lib/snowball'
 
 export default function LoansPage() {
   const { family, settings } = useFamily()
