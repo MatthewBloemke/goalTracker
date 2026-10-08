@@ -44,7 +44,7 @@ export function useLoans({
 
       const { data, error: fetchError } = await (familyId
         ? query.eq('family_id', familyId)
-        : query.eq('user_id', user.id));
+        : query.is('family_id', null).eq('user_id', user.id));
 
       if (requestId !== requestIdRef.current) return;
 

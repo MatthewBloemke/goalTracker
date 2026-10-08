@@ -17,6 +17,7 @@ export default function FamilyPage() {
     loading,
     createFamily,
     joinFamily,
+    leaveFamily,
     removeMember,
     promoteMember,
   } = useFamily();
@@ -59,6 +60,19 @@ export default function FamilyPage() {
 
   const handlePromote = async (memberId: string) => {
     await promoteMember(memberId);
+  };
+
+  const handleLeave = async () => {
+    const confirmed = window.confirm(
+      'Leave this family? Your personal budget will become active again, and the family budget will no longer be available to you.',
+    );
+    if (!confirmed) return;
+
+    setSubmitting(true);
+    setError(null);
+    const result = await leaveFamily();
+    if (!result.success) setError(result.error ?? 'Failed to leave family');
+    setSubmitting(false);
   };
 
   if (loading) {
@@ -251,6 +265,11 @@ export default function FamilyPage() {
       </div>
     );
   }
+
+  const currentMembership = members.find((member) => member.user_id === user?.id);
+  const isLastAdmin =
+    currentMembership?.role === 'admin' &&
+    members.filter((member) => member.role === 'admin').length <= 1;
 
   // Has a family
   return (
@@ -451,6 +470,28 @@ export default function FamilyPage() {
             );
           })}
         </div>
+      </div>
+
+      <div className="rounded-2xl p-5 glass flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+            Leave this family
+          </p>
+          <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+            {isLastAdmin
+              ? 'Promote another member to admin before leaving.'
+              : 'Your personal budget stays intact and will become active again.'}
+          </p>
+        </div>
+        <Button
+          onClick={handleLeave}
+          disabled={submitting || isLastAdmin}
+          color="error"
+          variant="outlined"
+          sx={{ flexShrink: 0 }}
+        >
+          {submitting ? 'Leaving...' : 'Leave family'}
+        </Button>
       </div>
     </div>
   );

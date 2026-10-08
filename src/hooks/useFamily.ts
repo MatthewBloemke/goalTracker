@@ -287,6 +287,41 @@ export function useFamily() {
     [supabase, fetchFamily, members],
   );
 
+  const leaveFamily = useCallback(async (): Promise<{
+    success: boolean;
+    error?: string;
+  }> => {
+    if (!user || !family) {
+      return { success: false, error: 'You are not currently in a family.' };
+    }
+
+    const currentMember = members.find((member) => member.user_id === user.id);
+    if (!currentMember) {
+      return { success: false, error: 'Your family membership was not found.' };
+    }
+
+    const adminCount = members.filter((member) => member.role === 'admin').length;
+    if (currentMember.role === 'admin' && adminCount <= 1) {
+      return {
+        success: false,
+        error: 'Promote another member to admin before leaving the family.',
+      };
+    }
+
+    const { error: leaveError } = await supabase
+      .from('family_members')
+      .delete()
+      .eq('id', currentMember.id)
+      .eq('user_id', user.id);
+
+    if (leaveError) {
+      return { success: false, error: leaveError.message };
+    }
+
+    await fetchFamily();
+    return { success: true };
+  }, [family, fetchFamily, members, supabase, user]);
+
   const promoteMember = useCallback(
     async (memberId: string): Promise<{ success: boolean }> => {
       await supabase
@@ -308,6 +343,7 @@ export function useFamily() {
     error,
     createFamily,
     joinFamily,
+    leaveFamily,
     updateStrategy,
     updateExtraBudget,
     removeMember,
