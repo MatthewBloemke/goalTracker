@@ -20,6 +20,8 @@ export type BudgetTransaction =
   Database['public']['Tables']['budget_transactions']['Row'];
 export type BudgetTransactionSplit =
   Database['public']['Tables']['budget_transaction_splits']['Row'];
+export type TaskList = Database['public']['Tables']['task_lists']['Row'];
+export type TaskItem = Database['public']['Tables']['task_items']['Row'];
 
 // INSERT TYPES — for writing to the DB
 export type InsertLoan = Database['public']['Tables']['loans']['Insert'];

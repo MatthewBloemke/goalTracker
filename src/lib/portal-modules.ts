@@ -46,10 +46,10 @@ export const portalModules: PortalModule[] = [
     href: '/task-planner',
     name: 'Task Planner',
     shortName: 'Tasks',
-    description: 'Plan household projects with owners, dates, steps, and expected costs.',
+    description: 'Organize larger household projects into flexible, prioritized task lists.',
     eyebrow: 'Household',
     accent: '#38bdf8',
     icon: 'T',
-    status: 'coming-soon',
+    status: 'available',
   },
 ]
