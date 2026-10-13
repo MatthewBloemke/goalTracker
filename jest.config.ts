@@ -10,6 +10,8 @@ const config: Config = {
   collectCoverageFrom: [
     'src/lib/**/*.{ts,tsx}',
     'src/app/**/_lib/**/*.{ts,tsx}',
+    'supabase/functions/_shared/recipe.ts',
+    'supabase/functions/analyze-recipe/recipe-import.ts',
     '!src/lib/supabase/**',
     '!src/app/**/_lib/**/*.test.{ts,tsx}',
   ],

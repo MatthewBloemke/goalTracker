@@ -1,6 +1,7 @@
 import {
   buildTaskListSummaries,
   orderTaskItems,
+  splitTaskItems,
 } from '@/app/task-planner/_lib/task-planner';
 import type { TaskItem, TaskList } from '@/types';
 
@@ -56,5 +57,33 @@ describe('task planner ordering', () => {
     expect(orderTaskItems(tasks, ['a'])).toBeNull();
     expect(orderTaskItems(tasks, ['a', 'a'])).toBeNull();
     expect(orderTaskItems(tasks, ['a', 'unknown'])).toBeNull();
+  });
+
+  test('separates active tasks and sorts completed tasks newest first', () => {
+    const active = task('active', 0);
+    const older = {
+      ...task('older', 1),
+      completed_at: '2026-10-09T13:00:00.000Z',
+    };
+    const newer = {
+      ...task('newer', 2),
+      completed_at: '2026-10-10T13:00:00.000Z',
+    };
+
+    expect(splitTaskItems([active, older, newer])).toEqual({
+      active: [active],
+      completed: [newer, older],
+    });
+  });
+
+  test('uses the previous task order when completion times match', () => {
+    const completedAt = '2026-10-10T13:00:00.000Z';
+    const first = { ...task('first', 1), completed_at: completedAt };
+    const second = { ...task('second', 2), completed_at: completedAt };
+
+    expect(splitTaskItems([first, second]).completed.map(({ id }) => id)).toEqual([
+      'second',
+      'first',
+    ]);
   });
 });

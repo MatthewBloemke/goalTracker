@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState } from 'react';
+import { use, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { move } from '@dnd-kit/helpers';
@@ -11,9 +11,12 @@ import CheckRounded from '@mui/icons-material/CheckRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import DragIndicatorRounded from '@mui/icons-material/DragIndicatorRounded';
 import EditRounded from '@mui/icons-material/EditRounded';
+import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded';
 import MoreHorizRounded from '@mui/icons-material/MoreHorizRounded';
 import Alert from '@mui/material/Alert';
+import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
+import Collapse from '@mui/material/Collapse';
 import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -25,6 +28,7 @@ import {
   useTaskList,
   type TaskInput,
 } from '@/app/task-planner/_hooks/useTaskList';
+import { splitTaskItems } from '@/app/task-planner/_lib/task-planner';
 import { AppTextField } from '@/components/ui/AppTextField';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { SecondaryButton } from '@/components/ui/SecondaryButton';
@@ -56,6 +60,20 @@ export default function TaskListPage({
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
   const [renameOpen, setRenameOpen] = useState(false);
+  const [completedOpen, setCompletedOpen] = useState(false);
+  const [completingTaskIds, setCompletingTaskIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const completionTimers = useRef(new Map<string, number>());
+
+  useEffect(
+    () => () => {
+      for (const timer of completionTimers.current.values()) {
+        window.clearTimeout(timer);
+      }
+    },
+    [],
+  );
 
   if (familyLoading || loading) return <TaskListLoading />;
 
@@ -82,10 +100,31 @@ export default function TaskListPage({
     );
   }
 
-  const completedCount = tasks.filter((task) => task.completed_at).length;
+  const { active: activeTasks, completed: completedTasks } =
+    splitTaskItems(tasks);
+  const completedCount = completedTasks.length;
   const closeTaskDialog = () => {
     setTaskDialogOpen(false);
     setEditingTask(null);
+  };
+  const handleToggle = (task: TaskItem) => {
+    if (task.completed_at) {
+      void toggleTask(task);
+      return;
+    }
+    if (completionTimers.current.has(task.id)) return;
+
+    setCompletingTaskIds((current) => new Set(current).add(task.id));
+    const timer = window.setTimeout(async () => {
+      completionTimers.current.delete(task.id);
+      await toggleTask(task);
+      setCompletingTaskIds((current) => {
+        const next = new Set(current);
+        next.delete(task.id);
+        return next;
+      });
+    }, 400);
+    completionTimers.current.set(task.id, timer);
   };
 
   return (
@@ -159,25 +198,31 @@ export default function TaskListPage({
             Add the first task
           </PrimaryButton>
         </section>
-      ) : (
+      ) : activeTasks.length > 0 ? (
         <DragDropProvider
           onDragEnd={(event) => {
             if (event.canceled) return;
-            const reordered = move(tasks, event);
-            const orderedIds = reordered.map(({ id }) => id);
-            if (orderedIds.some((id, index) => id !== tasks[index]?.id)) {
+            const reordered = move(activeTasks, event);
+            const activeOrderChanged = reordered.some(
+              ({ id }, index) => id !== activeTasks[index]?.id,
+            );
+            if (activeOrderChanged) {
+              const orderedIds = [...reordered, ...completedTasks].map(
+                ({ id }) => id,
+              );
               void reorderTasks(orderedIds);
             }
           }}
         >
           <section className="flex flex-col gap-3" aria-label="Prioritized tasks">
-            {tasks.map((task, index) => (
+            {activeTasks.map((task, index) => (
               <SortableTask
                 key={task.id}
                 task={task}
                 index={index}
-                disabled={mutating}
-                onToggle={() => void toggleTask(task)}
+                completing={completingTaskIds.has(task.id)}
+                disabled={mutating || completingTaskIds.has(task.id)}
+                onToggle={() => handleToggle(task)}
                 onEdit={() => {
                   setEditingTask(task);
                   setTaskDialogOpen(true);
@@ -191,6 +236,65 @@ export default function TaskListPage({
             ))}
           </section>
         </DragDropProvider>
+      ) : (
+        <section className="glass rounded-2xl p-6 text-center">
+          <CheckRounded sx={{ fontSize: 36, color: '#38bdf8' }} />
+          <h2 className="mt-2 font-serif text-xl text-(--text-primary)">
+            Everything on this list is complete
+          </h2>
+          <p className="mt-1 text-sm text-(--text-secondary)">
+            Expand completed tasks below if you need to restore anything.
+          </p>
+        </section>
+      )}
+
+      {completedTasks.length > 0 && (
+        <section className="overflow-hidden rounded-2xl border border-(--border) bg-(--surface)">
+          <Button
+            fullWidth
+            color="inherit"
+            onClick={() => setCompletedOpen((open) => !open)}
+            aria-expanded={completedOpen}
+            endIcon={
+              <ExpandMoreRounded
+                sx={{
+                  transform: completedOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                  transition: 'transform 160ms ease',
+                }}
+              />
+            }
+            sx={{
+              justifyContent: 'space-between',
+              px: 2.5,
+              py: 1.75,
+              color: 'var(--text-primary)',
+              '& .MuiButton-endIcon': { ml: 'auto' },
+            }}
+          >
+            Completed ({completedTasks.length})
+          </Button>
+          <Collapse in={completedOpen}>
+            <div className="flex flex-col gap-2 border-t border-(--border) p-3">
+              {completedTasks.map((task) => (
+                <CompletedTask
+                  key={task.id}
+                  task={task}
+                  disabled={mutating}
+                  onRestore={() => handleToggle(task)}
+                  onEdit={() => {
+                    setEditingTask(task);
+                    setTaskDialogOpen(true);
+                  }}
+                  onDelete={() => {
+                    if (window.confirm(`Delete “${task.name}”?`)) {
+                      void deleteTask(task.id);
+                    }
+                  }}
+                />
+              ))}
+            </div>
+          </Collapse>
+        </section>
       )}
 
       <div className="border-t border-(--border) pt-5">
@@ -245,6 +349,7 @@ export default function TaskListPage({
 function SortableTask({
   task,
   index,
+  completing,
   disabled,
   onToggle,
   onEdit,
@@ -252,6 +357,7 @@ function SortableTask({
 }: {
   task: TaskItem;
   index: number;
+  completing: boolean;
   disabled: boolean;
   onToggle: () => void;
   onEdit: () => void;
@@ -284,7 +390,7 @@ function SortableTask({
         <DragIndicatorRounded />
       </IconButton>
       <Checkbox
-        checked={Boolean(task.completed_at)}
+        checked={completing}
         onChange={onToggle}
         disabled={disabled}
         slotProps={{
@@ -299,8 +405,9 @@ function SortableTask({
         <h2
           className="text-base font-medium text-(--text-primary)"
           style={{
-            textDecoration: task.completed_at ? 'line-through' : 'none',
-            opacity: task.completed_at ? 0.62 : 1,
+            textDecoration: completing ? 'line-through' : 'none',
+            opacity: completing ? 0.62 : 1,
+            transition: 'opacity 160ms ease',
           }}
         >
           {task.name}
@@ -311,17 +418,90 @@ function SortableTask({
           </p>
         )}
       </div>
+      <TaskActions
+        task={task}
+        anchor={anchor}
+        onOpen={setAnchor}
+        onEdit={onEdit}
+        onDelete={onDelete}
+      />
+    </article>
+  );
+}
+
+function CompletedTask({
+  task,
+  disabled,
+  onRestore,
+  onEdit,
+  onDelete,
+}: {
+  task: TaskItem;
+  disabled: boolean;
+  onRestore: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+
+  return (
+    <article className="flex items-start gap-2 rounded-xl bg-(--surface-2) p-3 sm:gap-3">
+      <Checkbox
+        checked
+        onChange={onRestore}
+        disabled={disabled}
+        slotProps={{
+          input: { 'aria-label': `Mark ${task.name} incomplete` },
+        }}
+        sx={{ color: '#38bdf8', '&.Mui-checked': { color: '#38bdf8' } }}
+      />
+      <div className="min-w-0 flex-1 pt-1.5 opacity-65">
+        <h3 className="text-sm font-medium text-(--text-primary) line-through">
+          {task.name}
+        </h3>
+        {task.notes && (
+          <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-(--text-secondary)">
+            {task.notes}
+          </p>
+        )}
+      </div>
+      <TaskActions
+        task={task}
+        anchor={anchor}
+        onOpen={setAnchor}
+        onEdit={onEdit}
+        onDelete={onDelete}
+      />
+    </article>
+  );
+}
+
+function TaskActions({
+  task,
+  anchor,
+  onOpen,
+  onEdit,
+  onDelete,
+}: {
+  task: TaskItem;
+  anchor: HTMLElement | null;
+  onOpen: (anchor: HTMLElement | null) => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <>
       <IconButton
         aria-label={`Actions for ${task.name}`}
-        onClick={(event) => setAnchor(event.currentTarget)}
+        onClick={(event) => onOpen(event.currentTarget)}
         sx={{ color: 'var(--text-secondary)' }}
       >
         <MoreHorizRounded />
       </IconButton>
-      <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={() => setAnchor(null)}>
+      <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={() => onOpen(null)}>
         <MenuItem
           onClick={() => {
-            setAnchor(null);
+            onOpen(null);
             onEdit();
           }}
         >
@@ -329,7 +509,7 @@ function SortableTask({
         </MenuItem>
         <MenuItem
           onClick={() => {
-            setAnchor(null);
+            onOpen(null);
             onDelete();
           }}
           sx={{ color: 'error.main' }}
@@ -337,7 +517,7 @@ function SortableTask({
           <DeleteOutlineRounded fontSize="small" sx={{ mr: 1.5 }} /> Delete
         </MenuItem>
       </Menu>
-    </article>
+    </>
   );
 }
 

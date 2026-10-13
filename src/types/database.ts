@@ -607,6 +607,30 @@ export type Database = {
           },
         ]
       }
+      recipes: {
+        Row: { id: string; user_id: string; family_id: string | null; title: string; servings: number | null; source_url: string; notes: string; tags: string[]; created_at: string; updated_at: string }
+        Insert: { id?: string; user_id: string; family_id?: string | null; title: string; servings?: number | null; source_url?: string; notes?: string; tags?: string[]; created_at?: string; updated_at?: string }
+        Update: { title?: string; servings?: number | null; source_url?: string; notes?: string; tags?: string[] }
+        Relationships: []
+      }
+      recipe_ingredients: {
+        Row: { id: string; recipe_id: string; position: number; name: string; quantity: number | null; unit: string; preparation: string; shopping_quantity: number; shopping_unit: string }
+        Insert: { id?: string; recipe_id: string; position: number; name: string; quantity?: number | null; unit?: string; preparation?: string; shopping_quantity?: number; shopping_unit?: string }
+        Update: { position?: number; name?: string; quantity?: number | null; unit?: string; preparation?: string; shopping_quantity?: number; shopping_unit?: string }
+        Relationships: [{ foreignKeyName: "recipe_ingredients_recipe_id_fkey"; columns: ["recipe_id"]; isOneToOne: false; referencedRelation: "recipes"; referencedColumns: ["id"] }]
+      }
+      recipe_steps: {
+        Row: { id: string; recipe_id: string; position: number; instruction: string }
+        Insert: { id?: string; recipe_id: string; position: number; instruction: string }
+        Update: { position?: number; instruction?: string }
+        Relationships: [{ foreignKeyName: "recipe_steps_recipe_id_fkey"; columns: ["recipe_id"]; isOneToOne: false; referencedRelation: "recipes"; referencedColumns: ["id"] }]
+      }
+      recipe_import_requests: {
+        Row: { id: string; user_id: string; created_at: string }
+        Insert: { id?: string; user_id: string; created_at?: string }
+        Update: { id?: string; user_id?: string; created_at?: string }
+        Relationships: []
+      }
       task_lists: {
         Row: {
           created_at: string
@@ -647,6 +671,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      save_recipe: {
+        Args: { recipe_data: Json; target_id?: string | null; target_family_id?: string | null; expected_updated_at?: string | null }
+        Returns: string
+      }
+      add_recipe_to_task_list: {
+        Args: { source_recipe_id: string; ingredient_ids: string[]; target_list_id?: string | null; new_list_name?: string }
+        Returns: string
+      }
+      consume_recipe_import_quota: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       can_access_budget_scope: {
         Args: { owner_id: string; fam_id: string | null }
         Returns: boolean

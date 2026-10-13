@@ -380,6 +380,9 @@ deno_version = 2
 [functions.analyze-receipt]
 verify_jwt = true
 
+[functions.analyze-recipe]
+verify_jwt = true
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 

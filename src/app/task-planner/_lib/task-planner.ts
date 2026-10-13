@@ -10,6 +10,11 @@ export interface TaskCompletion {
   completed_at: string | null;
 }
 
+export interface TaskSections {
+  active: TaskItem[];
+  completed: TaskItem[];
+}
+
 export function buildTaskListSummaries(
   lists: TaskList[],
   items: TaskCompletion[],
@@ -50,4 +55,18 @@ export function orderTaskItems(
   if (reordered.some((task) => task === null)) return null;
   if (new Set(orderedIds).size !== tasks.length) return null;
   return reordered as TaskItem[];
+}
+
+export function splitTaskItems(tasks: TaskItem[]): TaskSections {
+  const active = tasks.filter((task) => !task.completed_at);
+  const completed = tasks
+    .filter((task) => task.completed_at)
+    .sort((left, right) => {
+      const completedDifference =
+        Date.parse(right.completed_at ?? '') -
+        Date.parse(left.completed_at ?? '');
+      return completedDifference || right.sort_order - left.sort_order;
+    });
+
+  return { active, completed };
 }
