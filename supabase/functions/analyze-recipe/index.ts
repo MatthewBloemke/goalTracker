@@ -6,6 +6,10 @@ import {
 } from '../_shared/recipe.ts';
 import { readOpenAiTokenUsage } from '../analyze-receipt/openai-guardrails.ts';
 import {
+  createOpenAiTransportFailure,
+  readOpenAiHttpFailure,
+} from './openai-errors.ts';
+import {
   buildRecipeRequest,
   DEFAULT_RECIPE_HOSTS,
   fetchRecipeText,
@@ -132,28 +136,34 @@ Deno.serve(async (request) => {
       }
     }
     const model = Deno.env.get('OPENAI_RECIPE_MODEL') || 'gpt-4o-mini';
-    const response = await fetch('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(buildRecipeRequest(model, sourceText)),
-      signal: AbortSignal.timeout(45_000),
-    });
-    if (!response.ok) {
-      await response.body?.cancel();
-      return json(
-        {
-          error:
-            'AI recipe import is temporarily unavailable. Please retry later.',
+    const referenceId = crypto.randomUUID();
+    const requestBody = JSON.stringify(buildRecipeRequest(model, sourceText));
+    let response: Response;
+    try {
+      response = await fetch('https://api.openai.com/v1/responses', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'X-Client-Request-Id': referenceId,
         },
-        502,
-      );
+        body: requestBody,
+        signal: AbortSignal.timeout(45_000),
+      });
+    } catch (error) {
+      const failure = createOpenAiTransportFailure(error, referenceId);
+      console.error('recipe_import_openai_error', failure.diagnostics);
+      return json(failure.body, failure.status);
+    }
+    if (!response.ok) {
+      const failure = await readOpenAiHttpFailure(response, referenceId);
+      console.error('recipe_import_openai_error', failure.diagnostics);
+      return json(failure.body, failure.status);
     }
     const payload: unknown = await response.json();
     console.info('recipe_import_usage', {
       requestId: quota.requestId,
+      referenceId,
       model,
       usage: readOpenAiTokenUsage(payload),
     });

@@ -36,6 +36,24 @@ Imports use the Responses API with strict Structured Outputs, `store: false`, a 
 
 Each approved attempt consumes an atomic per-user sliding hourly/daily quota, including failed fetches or model calls. These limits and token caps bound usage, but are not an account-wide dollar hard stop. Use low grants and a dedicated API project/key if desired. The request ledger stores metadata only; old rows can be pruned administratively after 24 hours if needed.
 
+## Troubleshooting AI import
+
+After deploying changes with `npx supabase functions deploy analyze-recipe`, retry the import once. OpenAI failures now show a more specific message and a **Reference** ID in the app. In Supabase, open **Edge Functions → analyze-recipe → Logs**, then search for that reference or `recipe_import_openai_error`.
+
+The log includes `upstreamStatus` (OpenAI's actual HTTP status, not our function's wrapper status), `errorCode`, `errorType`, `errorParam`, `openaiRequestId` and `referenceId`. The reference is also sent as `X-Client-Request-Id`, allowing correlation if a timeout occurs before OpenAI returns its own ID. This follows the [official OpenAI request-debugging guidance](https://developers.openai.com/api/reference/overview#debugging-requests).
+
+- `401`: check the shared `OPENAI_API_KEY` and project access/IP restrictions.
+- `403`: check key permissions, model access and project restrictions.
+- `404` / `model_not_found`: check `OPENAI_RECIPE_MODEL` (default `gpt-4o-mini`) and model access. This setting is separate from `OPENAI_RECEIPT_MODEL`.
+- `400` / `422`: the model/request configuration was rejected; inspect the code/type/parameter, e.g. `invalid_json_schema` with `text.format.schema`.
+- `429` with `insufficient_quota`, `credit_balance_exhausted` or a spend/usage-limit code: check billing and configured limits; repeated retries will not fix this. Other `429` errors generally indicate throttling.
+- `5xx`: upstream service failure; retry later.
+- `failureKind: timeout` or `network_error`: no upstream HTTP response was received. The reference still identifies the attempt.
+
+Only allowlisted error codes/types/parameter names are logged; unfamiliar values become `unrecognized`. Missing values are `null`. Non-JSON, oversized or unreadable error bodies produce `errorBodyState: unreadable` while retaining status/request-ID metadata where available. **Raw OpenAI error messages, full response bodies, request headers, recipe input and API keys are never included in these diagnostic logs or public errors.** Raw messages are intentionally excluded because they can echo credentials or input. Share the reference and safe diagnostic entry when reporting an issue, never your API key. See [OpenAI error codes](https://developers.openai.com/api/docs/guides/error-codes#api-errors) for the upstream meanings.
+
+These diagnostics do not save a recipe, change grants/quotas, increase limits or automatically retry a paid call. No database migration or new secret is required for this logging update.
+
 ## Review, shopping and sharing
 
 - AI and recipe-file imports open the same editable recipe form as manual entry. Nothing is saved before **Save recipe**. Unknown cooking quantities remain empty, not invented. Review temperatures, timings, amounts, dietary claims and shopping suggestions.

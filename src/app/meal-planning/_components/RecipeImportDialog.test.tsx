@@ -82,3 +82,42 @@ test('invalid model output cannot open the review or save a recipe', async () =>
   ).toBeInTheDocument();
   expect(review).not.toHaveBeenCalled();
 });
+
+test('shows the safe server error and reference without opening recipe review', async () => {
+  const previousResponse = globalThis.Response;
+  const message =
+    'OpenAI authentication failed. Nothing was saved. Reference: diagnostic-id';
+  // jsdom does not supply fetch's Response. Only the interface consumed by
+  // this component is needed; no live request is made.
+  class ErrorResponse {
+    async json() {
+      return { error: message, referenceId: 'diagnostic-id' };
+    }
+  }
+  Object.assign(globalThis, { Response: ErrorResponse });
+  try {
+    invoke.mockResolvedValue({
+      data: null,
+      error: { context: new ErrorResponse() },
+    });
+    const review = jest.fn();
+    render(<RecipeImportDialog onClose={jest.fn()} onReview={review} />);
+    fireEvent.change(
+      screen.getByRole('textbox', {
+        name: 'Recipe text, caption or transcript',
+      }),
+      { target: { value: 'Soup: add salt and stir.' } },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Extract recipe' }));
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(review).not.toHaveBeenCalled();
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByRole('textbox', {
+        name: 'Recipe text, caption or transcript',
+      }),
+    ).toHaveValue('Soup: add salt and stir.');
+  } finally {
+    Object.assign(globalThis, { Response: previousResponse });
+  }
+});
