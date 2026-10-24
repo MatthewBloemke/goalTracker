@@ -14,6 +14,7 @@ const config: Config = {
     'supabase/functions/analyze-recipe/recipe-import.ts',
     'supabase/functions/analyze-recipe/openai-errors.ts',
     'supabase/functions/analyze-recipe/public-web.ts',
+    'supabase/functions/analyze-recipe/website-response.ts',
     '!src/lib/supabase/**',
     '!src/app/**/_lib/**/*.test.{ts,tsx}',
   ],

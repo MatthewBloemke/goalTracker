@@ -1,10 +1,7 @@
 /** @jest-environment node */
 import { lookup } from 'node:dns/promises';
-import {
-  Client,
-  buildConnector,
-  fetch as publicFetch,
-} from 'npm:undici@6.29.1';
+import { Client, buildConnector } from 'npm:undici@6.29.1';
+import { Readable } from 'node:stream';
 import {
   fetchPublicRecipePage,
   isPublicAddress,
@@ -15,26 +12,32 @@ jest.mock('node:dns/promises', () => ({ lookup: jest.fn() }));
 jest.mock('npm:undici@6.29.1', () => ({
   Client: jest.fn(),
   buildConnector: jest.fn(),
-  fetch: jest.fn(),
 }));
 
 const dns = lookup as jest.Mock;
-const fetcher = publicFetch as jest.Mock;
+const fetcher = jest.fn();
 const createClient = Client as unknown as jest.Mock;
 const build = buildConnector as jest.Mock;
 const close = jest.fn();
 const connector = jest.fn();
 const signal = () => AbortSignal.timeout(12_000);
+const rawResponse = (
+  text = '<p>Soup</p>',
+  headers = { 'content-type': 'text/html' },
+  statusCode = 200,
+) => ({
+  statusCode,
+  headers,
+  body: Readable.from([Buffer.from(text)]),
+});
 
 beforeEach(() => {
   jest.resetAllMocks();
   dns.mockResolvedValue([{ address: '93.184.215.14', family: 4 }]);
   close.mockResolvedValue(undefined);
-  createClient.mockImplementation(() => ({ destroy: close }));
+  createClient.mockImplementation(() => ({ destroy: close, request: fetcher }));
   build.mockReturnValue(connector);
-  fetcher.mockResolvedValue(
-    new Response('<p>Soup</p>', { headers: { 'content-type': 'text/html' } }),
-  );
+  fetcher.mockImplementation(async () => rawResponse());
 });
 
 test.each([
@@ -161,6 +164,8 @@ test('pins every connection to the checked IP, retaining the hostname and TLS va
   );
   const [origin, options] = createClient.mock.calls[0];
   expect(origin).toBe('https://recipes.example');
+  expect(options.pipelining).toBe(1);
+  expect(options.maxResponseSize).toBe(2_000_000);
   expect(build).toHaveBeenCalledWith(
     expect.objectContaining({ rejectUnauthorized: true }),
   );
@@ -185,12 +190,16 @@ test('pins every connection to the checked IP, retaining the hostname and TLS va
   );
   expect(dns).toHaveBeenCalledTimes(1);
   expect(fetcher).toHaveBeenCalledWith(
-    'https://recipes.example/soup',
     expect.objectContaining({
-      redirect: 'manual',
-      credentials: 'omit',
+      path: '/soup',
+      method: 'GET',
+      maxRedirections: 0,
       signal: deadline,
-      headers: { Accept: 'text/html' },
+      headers: {
+        Accept: 'text/html',
+        'Accept-Encoding': 'identity',
+        'User-Agent': 'FamilyPortalRecipeImporter/1.0',
+      },
     }),
   );
   expect(result.response.status).toBe(200);
@@ -266,14 +275,59 @@ test('re-resolves each redirect destination and blocks a rebinding hostname', as
     .mockResolvedValueOnce([{ address: '93.184.215.14', family: 4 }])
     .mockResolvedValueOnce([{ address: '169.254.169.254', family: 4 }]);
   fetcher.mockResolvedValueOnce(
-    new Response(null, {
-      status: 302,
-      headers: { location: 'https://recipes.example/next' },
-    }),
+    rawResponse(
+      '',
+      {
+        'content-type': 'text/html',
+        ...{ location: 'https://recipes.example/next' },
+      },
+      302,
+    ),
   );
   await expect(fetchRecipeText('https://recipes.example/soup')).rejects.toThrow(
     'public recipe website',
   );
   expect(fetcher).toHaveBeenCalledTimes(1);
+  expect(close).toHaveBeenCalledTimes(1);
+});
+
+test('rejects unsolicited Brotli without a decoder and closes the client', async () => {
+  const raw = rawResponse('not Brotli', {
+    'content-type': 'text/html',
+    ...{ 'content-encoding': 'br' },
+  });
+  fetcher.mockResolvedValueOnce(raw);
+  await expect(
+    fetchPublicRecipePage(new URL('https://recipes.example/'), signal()),
+  ).rejects.toThrow('unsupported compressed response');
+  expect(raw.body.destroyed).toBe(true);
+  expect(close).toHaveBeenCalledTimes(1);
+});
+
+test('does not return partial HTML after a raw body failure', async () => {
+  fetcher.mockResolvedValueOnce({
+    statusCode: 200,
+    headers: { 'content-type': 'text/html' },
+    body: Readable.from(
+      (async function* () {
+        yield Buffer.from('<p>Partial recipe');
+        throw new Error('private transport details');
+      })(),
+    ),
+  });
+  await expect(
+    fetchPublicRecipePage(new URL('https://recipes.example/'), signal()),
+  ).rejects.toThrow('could not be read');
+  expect(close).toHaveBeenCalledTimes(1);
+});
+
+test('reports the transport size limit without leaking its internal error', async () => {
+  fetcher.mockRejectedValueOnce({
+    code: 'UND_ERR_RES_EXCEEDED_MAX_SIZE',
+    message: 'internal transport details',
+  });
+  await expect(
+    fetchPublicRecipePage(new URL('https://recipes.example/'), signal()),
+  ).rejects.toThrow('Source is too large. Paste just the recipe text instead.');
   expect(close).toHaveBeenCalledTimes(1);
 });

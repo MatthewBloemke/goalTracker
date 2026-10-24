@@ -1,10 +1,11 @@
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
+import { Client, buildConnector } from 'npm:undici@6.29.1';
 import {
-  Client,
-  buildConnector,
-  fetch as publicFetch,
-} from 'npm:undici@6.29.1';
+  readWebsiteResponse,
+  RecipeWebsiteError,
+  RECIPE_PAGE_MAX_BYTES,
+} from './website-response.ts';
 
 const unsafeDestination = () =>
   new Error(
@@ -165,32 +166,49 @@ export const fetchPublicRecipePage: RecipePageFetcher = async (
         },
         callback,
       ),
-    maxResponseSize: 1_000_000,
+    maxResponseSize: RECIPE_PAGE_MAX_BYTES,
     maxHeaderSize: 16_384,
     headersTimeout: 12_000,
     bodyTimeout: 12_000,
-    pipelining: 0,
+    // One in-flight request, with keep-alive until its body is consumed. Using
+    // 0 sends Connection: close; some servers then close TLS without an alert,
+    // which Deno 2.1.4 can report before delivering the final response bytes.
+    // The client is still destroyed immediately after this one page is read.
+    pipelining: 1,
   });
   try {
-    const response = await publicFetch(url.href, {
-      dispatcher: client,
-      redirect: 'manual',
+    const raw = await client.request({
+      path: url.pathname + url.search,
+      method: 'GET',
+      maxRedirections: 0,
       signal,
-      credentials: 'omit',
-      headers: { Accept: 'text/html' },
-    });
-    return {
-      response: {
-        status: response.status,
-        ok: response.ok,
-        headers: new Headers(response.headers),
-        body: response.body as Response['body'],
+      headers: {
+        Accept: 'text/html',
+        'Accept-Encoding': 'identity',
+        // Raw requests do not supply fetch's default User-Agent. Some recipe
+        // sites close the connection entirely if this header is missing.
+        'User-Agent': 'FamilyPortalRecipeImporter/1.0',
       },
+    });
+    const response = await readWebsiteResponse(raw, signal);
+    return {
+      response,
       close: () => client.destroy(),
     };
-  } catch {
+  } catch (error) {
     await client.destroy();
     signal.throwIfAborted();
+    if (error instanceof RecipeWebsiteError) throw error;
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      error.code === 'UND_ERR_RES_EXCEEDED_MAX_SIZE'
+    ) {
+      throw new RecipeWebsiteError(
+        'Source is too large. Paste just the recipe text instead.',
+      );
+    }
     throw new Error(
       'This website could not be read. Paste its recipe text instead.',
     );

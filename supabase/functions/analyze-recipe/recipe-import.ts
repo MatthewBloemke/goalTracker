@@ -5,6 +5,7 @@ import {
   type RecipeDraft,
 } from '../_shared/recipe.ts';
 import { supportsReasoningEffortNone } from '../analyze-receipt/openai-guardrails.ts';
+import { RECIPE_PAGE_MAX_BYTES } from './website-response.ts';
 import {
   fetchPublicRecipePage,
   validateImportUrl,
@@ -144,7 +145,9 @@ export async function fetchRecipeText(
           'Only recipe webpages are supported. Paste captions or transcripts for videos.',
         );
       }
-      return extractRecipeText(await readBoundedText(response, 1_000_000));
+      return extractRecipeText(
+        await readBoundedText(response, RECIPE_PAGE_MAX_BYTES),
+      );
     } finally {
       await close();
     }

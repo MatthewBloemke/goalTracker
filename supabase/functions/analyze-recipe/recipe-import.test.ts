@@ -7,6 +7,7 @@ import {
   readBoundedText,
   validateImportUrl,
 } from './recipe-import';
+import { RECIPE_PAGE_MAX_BYTES } from './website-response';
 
 const recipe = {
   title: 'Soup',
@@ -137,18 +138,16 @@ describe('recipe source security', () => {
     expect(fetcher.mock.calls[1][0].hostname).toBe('new-recipe-blog.example');
   });
   test('bounds redirects and rejects inaccessible/binary sources', async () => {
-    const redirect = jest
-      .fn()
-      .mockImplementation(() =>
-        Promise.resolve(
-          page(
-            new Response(null, {
-              status: 302,
-              headers: { location: '/again' },
-            }),
-          ),
+    const redirect = jest.fn().mockImplementation(() =>
+      Promise.resolve(
+        page(
+          new Response(null, {
+            status: 302,
+            headers: { location: '/again' },
+          }),
         ),
-      );
+      ),
+    );
     await expect(
       fetchRecipeText('https://allrecipes.com/test', redirect),
     ).rejects.toThrow('too many');
@@ -178,6 +177,35 @@ describe('recipe source security', () => {
       'empty',
     );
     await expect(readBoundedText(new Response('é'), 2)).resolves.toBe('é');
+  });
+  test('extracts a small recipe from a large page while retaining a bounded HTML limit', async () => {
+    const html = `<div>${'x'.repeat(1_100_000)}</div><script type="application/ld+json">${JSON.stringify(
+      {
+        '@type': 'Recipe',
+        name: 'Soup',
+        recipeIngredient: ['1 tsp salt'],
+        recipeInstructions: 'Stir.',
+      },
+    )}</script>`;
+    const fetcher = jest.fn().mockResolvedValue(
+      page(
+        new Response(html, {
+          headers: { 'content-type': 'text/html' },
+        }),
+      ),
+    );
+    const text = await fetchRecipeText('https://recipes.example/soup', fetcher);
+    expect(JSON.parse(text).name).toBe('Soup');
+    expect(text.length).toBeLessThan(16_000);
+    const oversized = new Response('x'.repeat(RECIPE_PAGE_MAX_BYTES + 1), {
+      headers: { 'content-type': 'text/html' },
+    });
+    await expect(
+      fetchRecipeText(
+        'https://recipes.example/soup',
+        jest.fn().mockResolvedValue(page(oversized)),
+      ),
+    ).rejects.toThrow('too large');
   });
 });
 
