@@ -13,6 +13,7 @@ const config: Config = {
     'supabase/functions/_shared/recipe.ts',
     'supabase/functions/analyze-recipe/recipe-import.ts',
     'supabase/functions/analyze-recipe/openai-errors.ts',
+    'supabase/functions/analyze-recipe/public-web.ts',
     '!src/lib/supabase/**',
     '!src/app/**/_lib/**/*.test.{ts,tsx}',
   ],
@@ -28,6 +29,7 @@ const config: Config = {
     },
   },
   moduleNameMapper: {
+    '^npm:undici@6\\.29\\.1$': 'undici',
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],

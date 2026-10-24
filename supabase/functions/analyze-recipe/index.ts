@@ -11,7 +11,6 @@ import {
 } from './openai-errors.ts';
 import {
   buildRecipeRequest,
-  DEFAULT_RECIPE_HOSTS,
   fetchRecipeText,
   parseRecipeResponse,
   readBoundedText,
@@ -114,15 +113,8 @@ Deno.serve(async (request) => {
         quota.reason === 'not_approved' ? 403 : 429,
       );
     if (!sourceText) {
-      const extraHosts = (Deno.env.get('RECIPE_IMPORT_ALLOWED_HOSTS') ?? '')
-        .split(',')
-        .map((host) => host.trim())
-        .filter(Boolean);
       try {
-        sourceText = await fetchRecipeText(sourceUrl, [
-          ...DEFAULT_RECIPE_HOSTS,
-          ...extraHosts,
-        ]);
+        sourceText = await fetchRecipeText(sourceUrl);
       } catch (error) {
         return json(
           {

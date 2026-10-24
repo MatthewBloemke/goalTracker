@@ -35,79 +35,122 @@ const response = (data: unknown) => ({
     },
   ],
 });
+const page = (response: Response) => ({
+  response,
+  close: jest.fn().mockResolvedValue(undefined),
+});
 
 describe('recipe source security', () => {
   test.each([
-    'http://allrecipes.com/a',
     'https://localhost/a',
     'https://127.0.0.1/a',
     'https://2130706433/a',
     'https://[::1]/a',
-    'https://allrecipes.com.evil.com/a',
     'https://user:password@allrecipes.com',
     'https://allrecipes.com:8080/a',
-    'https://unapproved.example/a',
+    'https://recipes.local/a',
+    'file:///etc/passwd',
     'garbage',
-  ])('rejects non-allowlisted/unsafe destinations: %s', (url) => {
+  ])('rejects unsafe destinations: %s', (url) => {
     expect(() => validateImportUrl(url)).toThrow();
   });
-  test('handles Facebook explicitly without fetching video', () => {
-    expect(() =>
-      validateImportUrl('https://www.facebook.com/reel/123'),
-    ).toThrow('caption or transcript');
-    expect(() => validateImportUrl('https://fb.watch/123')).toThrow(
-      'caption or transcript',
-    );
-  });
-  test('allows exact trusted sites and configured hosts only', () => {
+  test.each([
+    'https://www.facebook.com/reel/123',
+    'https://fb.watch/123',
+    'https://custom.example/recipe',
+    'https://recipes.blog.example/soup',
+    'http://custom.example/recipe',
+    'https://www.example.co.uk/recipe',
+    'https://recetas.es/paella',
+  ])(
+    'accepts any public website URL without administrator configuration: %s',
+    (url) => {
+      expect(validateImportUrl(url).href).toBe(url);
+    },
+  );
+  test('normalizes fragments without restricting domains', () => {
     expect(
       validateImportUrl('https://www.allrecipes.com/recipe/123#recipe').href,
     ).toBe('https://www.allrecipes.com/recipe/123');
-    expect(
-      validateImportUrl('https://custom.example/recipe', ['custom.example'])
-        .hostname,
-    ).toBe('custom.example');
   });
   test('revalidates redirects before any follow-up request', async () => {
-    const fetcher = jest
-      .fn()
-      .mockResolvedValue(
+    const fetcher = jest.fn().mockResolvedValue(
+      page(
         new Response(null, {
           status: 302,
           headers: { location: 'http://169.254.169.254/metadata' },
         }),
-      );
+      ),
+    );
     await expect(
-      fetchRecipeText('https://allrecipes.com/test', undefined, fetcher),
-    ).rejects.toThrow('not enabled');
+      fetchRecipeText('https://allrecipes.com/test', fetcher),
+    ).rejects.toThrow('public recipe website');
     expect(fetcher).toHaveBeenCalledTimes(1);
+    expect((await fetcher.mock.results[0].value).close).toHaveBeenCalledTimes(
+      1,
+    );
   });
   test('follows safe relative redirects and extracts final page', async () => {
     const fetcher = jest
       .fn()
       .mockResolvedValueOnce(
-        new Response(null, { status: 301, headers: { location: '/actual' } }),
+        page(
+          new Response(null, { status: 301, headers: { location: '/actual' } }),
+        ),
       )
       .mockResolvedValueOnce(
-        new Response('<p>Ingredients: salt. Stir.</p>', {
-          headers: { 'content-type': 'text/html' },
-        }),
+        page(
+          new Response('<p>Ingredients: salt. Stir.</p>', {
+            headers: { 'content-type': 'text/html' },
+          }),
+        ),
       );
     await expect(
-      fetchRecipeText('https://allrecipes.com/test', undefined, fetcher),
+      fetchRecipeText('https://allrecipes.com/test', fetcher),
     ).resolves.toBe('Ingredients: salt. Stir.');
     expect(fetcher.mock.calls[1][0].href).toBe('https://allrecipes.com/actual');
+    expect(fetcher.mock.calls[1][1]).toBe(fetcher.mock.calls[0][1]);
+    for (const result of fetcher.mock.results)
+      expect((await result.value).close).toHaveBeenCalledTimes(1);
+  });
+  test('follows public cross-domain redirects without an allowlist', async () => {
+    const fetcher = jest
+      .fn()
+      .mockResolvedValueOnce(
+        page(
+          new Response(null, {
+            status: 302,
+            headers: { location: 'https://new-recipe-blog.example/soup' },
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        page(
+          new Response('<p>Soup ingredients and instructions</p>', {
+            headers: { 'content-type': 'text/html' },
+          }),
+        ),
+      );
+    await expect(
+      fetchRecipeText('http://short-link.example/123', fetcher),
+    ).resolves.toBe('Soup ingredients and instructions');
+    expect(fetcher.mock.calls[1][0].hostname).toBe('new-recipe-blog.example');
   });
   test('bounds redirects and rejects inaccessible/binary sources', async () => {
     const redirect = jest
       .fn()
       .mockImplementation(() =>
         Promise.resolve(
-          new Response(null, { status: 302, headers: { location: '/again' } }),
+          page(
+            new Response(null, {
+              status: 302,
+              headers: { location: '/again' },
+            }),
+          ),
         ),
       );
     await expect(
-      fetchRecipeText('https://allrecipes.com/test', undefined, redirect),
+      fetchRecipeText('https://allrecipes.com/test', redirect),
     ).rejects.toThrow('too many');
     for (const result of [
       new Response('blocked', { status: 403 }),
@@ -116,8 +159,7 @@ describe('recipe source security', () => {
       await expect(
         fetchRecipeText(
           'https://allrecipes.com/test',
-          undefined,
-          jest.fn().mockResolvedValue(result),
+          jest.fn().mockResolvedValue(page(result)),
         ),
       ).rejects.toThrow();
     }

@@ -95,15 +95,15 @@ export function RecipeImportDialog({
         <Divider>Or extract with AI</Divider>
         <Alert severity="info">
           AI import requires approval. It reads recipe webpages or pasted text,
-          not the video itself. For Facebook, paste the caption or transcript
-          below.
+          not the video itself. If a video link does not expose the recipe text,
+          paste its caption or transcript below.
         </Alert>
         <AppTextField
           label="Recipe website / source link"
           value={sourceUrl}
           disabled={busy}
           onChange={(e) => setSourceUrl(e.target.value)}
-          helperText="Direct import supports enabled recipe websites. With pasted text, any http/https source link can be kept for reference."
+          helperText="Try any public recipe website. Some sites block automated access or require a login; you can paste the recipe text instead."
         />
         <AppTextField
           label="Recipe text, caption or transcript"

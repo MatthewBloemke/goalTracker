@@ -5,59 +5,12 @@ import {
   type RecipeDraft,
 } from '../_shared/recipe.ts';
 import { supportsReasoningEffortNone } from '../analyze-receipt/openai-guardrails.ts';
-
-export const DEFAULT_RECIPE_HOSTS = [
-  'allrecipes.com',
-  'foodnetwork.com',
-  'budgetbytes.com',
-  'spendwithpennies.com',
-  'natashaskitchen.com',
-  'seriouseats.com',
-  'bbcgoodfood.com',
-  'recipetineats.com',
-];
-
-// Only administrators can extend the fetch allowlist. User-supplied URLs never
-// become arbitrary network destinations (including on redirects).
-export function validateImportUrl(
-  raw: string,
-  allowedHosts = DEFAULT_RECIPE_HOSTS,
-): URL {
-  let url: URL;
-  try {
-    url = new URL(raw);
-  } catch {
-    throw new Error('Enter a valid recipe website URL.');
-  }
-  const host = url.hostname.toLowerCase().replace(/^www\./, '');
-  if (
-    host === 'fb.watch' ||
-    host === 'facebook.com' ||
-    host.endsWith('.facebook.com')
-  ) {
-    throw new Error(
-      'Facebook video import needs the recipe caption or transcript. Paste it below; the link can still be saved as the source.',
-    );
-  }
-  if (
-    url.protocol !== 'https:' ||
-    url.port ||
-    url.username ||
-    url.password ||
-    !/^[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}$/.test(host) ||
-    host.endsWith('.local') ||
-    host.endsWith('.internal') ||
-    !allowedHosts
-      .map((item) => item.toLowerCase().replace(/^www\./, ''))
-      .includes(host)
-  ) {
-    throw new Error(
-      'This website is not enabled for direct import. Paste its recipe text below, or ask an administrator to enable the trusted site.',
-    );
-  }
-  url.hash = '';
-  return url;
-}
+import {
+  fetchPublicRecipePage,
+  validateImportUrl,
+  type RecipePageFetcher,
+} from './public-web.ts';
+export { validateImportUrl } from './public-web.ts';
 
 export async function readBoundedText(
   response: Pick<Response, 'body' | 'headers'>,
@@ -157,42 +110,44 @@ export function extractRecipeText(html: string): string {
 
 export async function fetchRecipeText(
   raw: string,
-  allowedHosts = DEFAULT_RECIPE_HOSTS,
-  fetcher: typeof fetch = fetch,
+  fetchPage: RecipePageFetcher = fetchPublicRecipePage,
 ): Promise<string> {
-  let url = validateImportUrl(raw, allowedHosts);
+  let url = validateImportUrl(raw);
   const signal = AbortSignal.timeout(12_000);
   for (let redirect = 0; redirect <= 3; redirect++) {
-    const response = await fetcher(url, {
-      redirect: 'manual',
-      signal,
-      headers: { Accept: 'text/html' },
-    });
-    if ([301, 302, 303, 307, 308].includes(response.status)) {
-      const location = response.headers.get('location');
-      await response.body?.cancel();
-      if (!location || redirect === 3)
+    const { response, close } = await fetchPage(url, signal);
+    try {
+      if ([301, 302, 303, 307, 308].includes(response.status)) {
+        const location = response.headers.get('location');
+        await response.body?.cancel();
+        if (!location || redirect === 3)
+          throw new Error(
+            'Website redirected too many times. Paste the recipe text instead.',
+          );
+        url = validateImportUrl(new URL(location, url).href);
+        continue;
+      }
+      if (!response.ok) {
+        await response.body?.cancel();
         throw new Error(
-          'Website redirected too many times. Paste the recipe text instead.',
+          'This website could not be read. Paste the recipe text instead.',
         );
-      url = validateImportUrl(new URL(location, url).href, allowedHosts);
-      continue;
+      }
+      if (
+        !response.headers
+          .get('content-type')
+          ?.toLowerCase()
+          .includes('text/html')
+      ) {
+        await response.body?.cancel();
+        throw new Error(
+          'Only recipe webpages are supported. Paste captions or transcripts for videos.',
+        );
+      }
+      return extractRecipeText(await readBoundedText(response, 1_000_000));
+    } finally {
+      await close();
     }
-    if (!response.ok) {
-      await response.body?.cancel();
-      throw new Error(
-        'This website could not be read. Paste the recipe text instead.',
-      );
-    }
-    if (
-      !response.headers.get('content-type')?.toLowerCase().includes('text/html')
-    ) {
-      await response.body?.cancel();
-      throw new Error(
-        'Only recipe webpages are supported. Paste captions or transcripts for videos.',
-      );
-    }
-    return extractRecipeText(await readBoundedText(response, 1_000_000));
   }
   throw new Error('Unable to read recipe website.');
 }
