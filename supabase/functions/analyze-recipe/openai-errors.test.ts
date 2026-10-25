@@ -62,6 +62,8 @@ describe('OpenAI recipe error diagnostics', () => {
     [404, null, 502, 'recipe model is unavailable'],
     [400, 'model_not_found', 502, 'recipe model is unavailable'],
     [400, 'invalid_model', 502, 'recipe model is unavailable'],
+    [400, 'unallowed_model', 502, 'OPENAI_RECEIPT_MODEL'],
+    [403, 'unallowed_model', 502, 'OPENAI_RECEIPT_MODEL'],
     [429, 'rate_limit_exceeded', 429, 'limiting recipe import requests'],
     [429, null, 429, 'limiting recipe import requests'],
     [422, 'unsupported_parameter', 502, 'rejected the recipe-analysis request'],

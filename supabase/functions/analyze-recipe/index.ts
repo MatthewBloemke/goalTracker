@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { resolveOpenAiModel } from '../_shared/openai-model.ts';
 import {
   isRecord,
   RECIPE_TEXT_MAX_LENGTH,
@@ -127,7 +128,7 @@ Deno.serve(async (request) => {
         );
       }
     }
-    const model = Deno.env.get('OPENAI_RECIPE_MODEL') || 'gpt-4o-mini';
+    const model = resolveOpenAiModel((name) => Deno.env.get(name));
     const referenceId = crypto.randomUUID();
     const requestBody = JSON.stringify(buildRecipeRequest(model, sourceText));
     let response: Response;

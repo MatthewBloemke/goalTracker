@@ -6,7 +6,7 @@ Meal Planning now contains a shared family recipe library (or a personal library
 
 1. Apply `supabase/migrations/20261012000000_recipes.sql` using `npx supabase db push`. It depends on the existing receipt-access and task-planner migrations. No storage bucket is needed.
 2. Configure the **Supabase Edge Function** secret `OPENAI_API_KEY` (reuse the receipt scanner's existing secret if configured; never put it in a `NEXT_PUBLIC_*` variable).
-3. Optionally configure `OPENAI_RECIPE_MODEL`. Default: `gpt-4o-mini`, matching the cost-conscious receipt setup.
+3. Recipe import uses the receipt scanner's existing `OPENAI_RECEIPT_MODEL` setting (default: `gpt-4o-mini`). Both functions use one shared model resolver. `OPENAI_RECIPE_MODEL` is no longer read, even if the old secret is still set; no new model secret is needed.
 4. Deploy with `npx supabase functions deploy analyze-recipe`.
 5. Approve each user separately in the Supabase SQL editor (replace the UUID):
 
@@ -48,7 +48,7 @@ The log includes `upstreamStatus` (OpenAI's actual HTTP status, not our function
 
 - `401`: check the shared `OPENAI_API_KEY` and project access/IP restrictions.
 - `403`: check key permissions, model access and project restrictions.
-- `404` / `model_not_found`: check `OPENAI_RECIPE_MODEL` (default `gpt-4o-mini`) and model access. This setting is separate from `OPENAI_RECEIPT_MODEL`.
+- `404` / `model_not_found` / `unallowed_model`: check `OPENAI_RECEIPT_MODEL` (default `gpt-4o-mini`) and model access. This is the same setting used by receipt scanning; an old `OPENAI_RECIPE_MODEL` value is ignored. Redeploy `analyze-recipe` to adopt the shared setting. No new secret, migration, or Vercel deployment is required.
 - `400` / `422`: the model/request configuration was rejected; inspect the code/type/parameter, e.g. `invalid_json_schema` with `text.format.schema`.
 - `429` with `insufficient_quota`, `credit_balance_exhausted` or a spend/usage-limit code: check billing and configured limits; repeated retries will not fix this. Other `429` errors generally indicate throttling.
 - `5xx`: upstream service failure; retry later.

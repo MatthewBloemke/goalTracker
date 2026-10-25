@@ -16,7 +16,7 @@ Category allocations must equal the receipt total exactly. The server determinis
 
 `OPENAI_API_KEY` is required only in the Supabase Edge Function environment. Never use a `NEXT_PUBLIC_` prefix and never add it to the browser app.
 
-The optional `OPENAI_RECEIPT_MODEL` setting defaults to `gpt-4o-mini`.
+The optional `OPENAI_RECEIPT_MODEL` setting defaults to `gpt-4o-mini`. Recipe import uses this same setting and shared model resolver, so both features use the receipt scanner's configured model. The legacy `OPENAI_RECIPE_MODEL` override is ignored.
 
 Every OpenAI request is capped at 2,000 output tokens. Models known to support non-reasoning mode receive `reasoning.effort: "none"`; the setting is omitted for the default non-reasoning `gpt-4o-mini` model and incompatible models. If OpenAI reports an incomplete response because that cap was reached, the function returns an error instead of parsing partial data, and the user can retry.
 

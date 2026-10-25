@@ -13,6 +13,7 @@ const ERROR_CODES = new Set([
   'missing_required_parameter',
   'model_not_found',
   'invalid_model',
+  'unallowed_model',
   'permission_denied',
   'access_denied',
   'insufficient_permissions',
@@ -97,11 +98,16 @@ function httpErrorMessage(
       message:
         'OpenAI authentication failed. Ask an administrator to check OPENAI_API_KEY and the OpenAI project’s access restrictions.',
     };
-  if (status === 404 || code === 'model_not_found' || code === 'invalid_model')
+  if (
+    status === 404 ||
+    code === 'model_not_found' ||
+    code === 'invalid_model' ||
+    code === 'unallowed_model'
+  )
     return {
       status: 502,
       message:
-        'The configured recipe model is unavailable or inaccessible. Ask an administrator to check OPENAI_RECIPE_MODEL and model access.',
+        'The configured recipe model is unavailable or inaccessible. Ask an administrator to check OPENAI_RECEIPT_MODEL (shared with receipt scanning) and model access.',
     };
   if (status === 403)
     return {

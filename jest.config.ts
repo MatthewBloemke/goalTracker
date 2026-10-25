@@ -11,6 +11,7 @@ const config: Config = {
     'src/lib/**/*.{ts,tsx}',
     'src/app/**/_lib/**/*.{ts,tsx}',
     'supabase/functions/_shared/recipe.ts',
+    'supabase/functions/_shared/openai-model.ts',
     'supabase/functions/analyze-recipe/recipe-import.ts',
     'supabase/functions/analyze-recipe/openai-errors.ts',
     'supabase/functions/analyze-recipe/public-web.ts',

@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { resolveOpenAiModel } from '../_shared/openai-model.ts'
 import {
   buildReceiptSchema,
   validateReceiptAnalysis,
@@ -15,7 +16,6 @@ import {
 import { parseReceiptAccessDecision } from './receipt-access.ts'
 
 const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses'
-const DEFAULT_MODEL = 'gpt-4o-mini'
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 const MAX_CATEGORIES = 200
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
@@ -115,7 +115,7 @@ Deno.serve(async (request: Request) => {
         description: getReceiptCategoryDescription(category.name, groupName),
       }
     })
-    const model = Deno.env.get('OPENAI_RECEIPT_MODEL') || DEFAULT_MODEL
+    const model = resolveOpenAiModel((name) => Deno.env.get(name))
 
     const { data: rawAccessDecision, error: accessError } = await supabase
       .rpc('consume_receipt_analysis_quota')
