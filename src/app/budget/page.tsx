@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import dayjs from 'dayjs';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
+import ButtonBase from '@mui/material/ButtonBase';
 import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
@@ -11,6 +12,15 @@ import DialogTitle from '@mui/material/DialogTitle';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
 import MenuItem from '@mui/material/MenuItem';
+import Popover from '@mui/material/Popover';
+import {
+  AddRounded,
+  ChevronLeftRounded,
+  ChevronRightRounded,
+  ExpandMoreRounded,
+  EditOutlined,
+  ReceiptLongOutlined,
+} from '@mui/icons-material';
 import {
   useBudget,
   type CreateTransactionInput,
@@ -42,6 +52,13 @@ export default function MonthlyBudgetPage() {
   const [month, setMonth] = useState(() => toBudgetMonth(new Date()));
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [showGroupForm, setShowGroupForm] = useState(false);
+  const [editingGroups, setEditingGroups] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
+    new Set(),
+  );
+  const [receiptAnchor, setReceiptAnchor] = useState<HTMLButtonElement | null>(
+    null,
+  );
   const budgetData = useBudget({ familyId: family?.id, month });
   const {
     budget,
@@ -62,15 +79,20 @@ export default function MonthlyBudgetPage() {
   });
 
   if (familyLoading || loading) return <BudgetLoading />;
+  const allCollapsed =
+    groups.length > 0 && groups.every(({ id }) => collapsedGroups.has(id));
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-3">
             <h1 className="font-serif text-3xl text-(--text-primary)">
               Monthly Plan
             </h1>
+            <span className="rounded-full bg-(--surface-2) px-3 py-1 text-xs text-(--text-secondary)">
+              {family?.name ?? 'Personal'}
+            </span>
             <span
               className="flex items-center gap-1.5 text-xs text-(--text-secondary)"
               title={
@@ -87,35 +109,25 @@ export default function MonthlyBudgetPage() {
                     : 'var(--accent-amber)',
                 }}
               />
-              {realtimeConnected ? 'Live' : 'Connecting'}
+              <span className={realtimeConnected ? 'sr-only' : ''}>
+                {realtimeConnected ? 'Live updates connected' : 'Connecting'}
+              </span>
             </span>
           </div>
-          <p className="mt-1 text-sm text-(--text-secondary)">
-            {family ? `${family.name}'s shared budget` : 'Your personal budget'}
-          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <SecondaryButton onClick={() => setShowGroupForm(true)}>
-            Add group
+          <SecondaryButton
+            startIcon={<ReceiptLongOutlined />}
+            endIcon={<ExpandMoreRounded />}
+            disabled={categories.length === 0 || receiptScanner.analyzing}
+            aria-haspopup="dialog"
+            aria-expanded={!!receiptAnchor}
+            onClick={(event) => setReceiptAnchor(event.currentTarget)}
+          >
+            Receipt
           </SecondaryButton>
-          <ReceiptImageButton
-            label="Scan receipt"
-            capture
-            disabled={categories.length === 0 || receiptScanner.analyzing}
-            onSelect={(file) => {
-              setShowTransactionForm(true);
-              void receiptScanner.analyze(file);
-            }}
-          />
-          <ReceiptImageButton
-            label="Upload receipt"
-            disabled={categories.length === 0 || receiptScanner.analyzing}
-            onSelect={(file) => {
-              setShowTransactionForm(true);
-              void receiptScanner.analyze(file);
-            }}
-          />
           <PrimaryButton
+            startIcon={<AddRounded />}
             onClick={() => {
               receiptScanner.reset();
               setShowTransactionForm(true);
@@ -126,6 +138,34 @@ export default function MonthlyBudgetPage() {
           </PrimaryButton>
         </div>
       </div>
+
+      <Popover
+        open={!!receiptAnchor}
+        anchorEl={receiptAnchor}
+        onClose={() => setReceiptAnchor(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        slotProps={{
+          paper: {
+            role: 'dialog',
+            'aria-label': 'Receipt options',
+            sx: { p: 1.5, display: 'flex', flexDirection: 'column', gap: 1 },
+          },
+        }}
+      >
+        {[true, false].map((capture) => (
+          <ReceiptImageButton
+            key={String(capture)}
+            label={capture ? 'Scan receipt' : 'Upload receipt'}
+            capture={capture}
+            onSelect={(file) => {
+              setReceiptAnchor(null);
+              setShowTransactionForm(true);
+              void receiptScanner.analyze(file);
+            }}
+          />
+        ))}
+      </Popover>
 
       <MonthNavigator month={month} onChange={setMonth} />
 
@@ -151,23 +191,52 @@ export default function MonthlyBudgetPage() {
             disabled={mutating}
             onIncomeSave={budgetData.updateIncome}
           />
-          <BudgetStatus
-            unassigned={summary.unassigned}
-            status={summary.status}
-          />
           <section className="flex flex-col gap-4">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-(--text-secondary)">
-                  Every dollar has a job
-                </p>
-                <h2 className="mt-1 font-serif text-2xl text-(--text-primary)">
-                  Category plan
-                </h2>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold text-(--text-primary)">
+                Categories
+              </h2>
+              <div className="flex flex-wrap items-center gap-2">
+                {groups.length > 0 && (
+                  <Button
+                    color="inherit"
+                    size="small"
+                    sx={{ px: 1, py: 0.5, color: 'text.secondary' }}
+                    onClick={() =>
+                      setCollapsedGroups(
+                        allCollapsed
+                          ? new Set()
+                          : new Set(groups.map(({ id }) => id)),
+                      )
+                    }
+                  >
+                    {allCollapsed ? 'Expand all' : 'Collapse all'}
+                  </Button>
+                )}
+                {editingGroups && (
+                  <SecondaryButton
+                    size="small"
+                    sx={{ px: 1.5, py: 0.5 }}
+                    disabled={mutating}
+                    startIcon={<AddRounded />}
+                    onClick={() => setShowGroupForm(true)}
+                  >
+                    Add group
+                  </SecondaryButton>
+                )}
+                <Button
+                  color="inherit"
+                  size="small"
+                  aria-pressed={editingGroups}
+                  sx={{ px: 1, py: 0.5 }}
+                  onClick={() => {
+                    if (!editingGroups) setCollapsedGroups(new Set());
+                    setEditingGroups(!editingGroups);
+                  }}
+                >
+                  {editingGroups ? 'Done editing' : 'Edit groups'}
+                </Button>
               </div>
-              <span className="text-sm text-(--text-secondary)">
-                {groups.length} group{groups.length === 1 ? '' : 's'}
-              </span>
             </div>
 
             {summary.groups.length === 0 ? (
@@ -185,17 +254,36 @@ export default function MonthlyBudgetPage() {
                 </SecondaryButton>
               </div>
             ) : (
-              summary.groups.map((groupSnapshot) => (
-                <BudgetGroupCard
-                  key={groupSnapshot.group.id}
-                  snapshot={groupSnapshot}
-                  disabled={mutating}
-                  onAllocationChange={budgetData.updateAllocation}
-                  onAddCategory={budgetData.createCategory}
-                  onDeleteCategory={budgetData.archiveCategory}
-                  onDeleteGroup={budgetData.archiveGroup}
-                />
-              ))
+              <div className="rounded-xl border border-(--border) bg-(--surface)">
+                <div className="hidden grid-cols-[minmax(0,1fr)_130px_100px_120px] gap-3 border-b border-(--border) px-4 py-3 text-right text-xs text-(--text-secondary) sm:grid">
+                  <span className="text-left">Category</span>
+                  <span>Planned</span>
+                  <span>Spent</span>
+                  <span>Remaining</span>
+                </div>
+                {summary.groups.map((groupSnapshot) => (
+                  <BudgetGroupCard
+                    key={groupSnapshot.group.id}
+                    snapshot={groupSnapshot}
+                    disabled={mutating}
+                    editing={editingGroups}
+                    collapsed={collapsedGroups.has(groupSnapshot.group.id)}
+                    onToggle={() =>
+                      setCollapsedGroups((current) => {
+                        const next = new Set(current);
+                        if (next.has(groupSnapshot.group.id))
+                          next.delete(groupSnapshot.group.id);
+                        else next.add(groupSnapshot.group.id);
+                        return next;
+                      })
+                    }
+                    onAllocationChange={budgetData.updateAllocation}
+                    onAddCategory={budgetData.createCategory}
+                    onDeleteCategory={budgetData.archiveCategory}
+                    onDeleteGroup={budgetData.archiveGroup}
+                  />
+                ))}
+              </div>
             )}
           </section>
         </>
@@ -249,40 +337,48 @@ function MonthNavigator({
   onChange: (month: string) => void;
 }) {
   return (
-    <div className="glass flex items-center justify-between rounded-2xl px-3 py-2">
+    <div
+      className="flex flex-wrap items-center gap-1"
+      role="group"
+      aria-label="Budget month"
+    >
       <IconButton
         aria-label="Previous month"
         onClick={() => onChange(shiftBudgetMonth(month, -1))}
         color="inherit"
       >
-        ←
+        <ChevronLeftRounded />
       </IconButton>
       <div className="text-center">
-        <p className="numeric-value text-xl font-medium text-(--text-primary)">
+        <p
+          className="numeric-value px-2 text-lg font-medium text-(--text-primary)"
+          aria-live="polite"
+        >
           {dayjs(month).format('MMMM YYYY')}
         </p>
-        {month !== toBudgetMonth(new Date()) && (
-          <Button
-            size="small"
-            onClick={() => onChange(toBudgetMonth(new Date()))}
-            sx={{
-              color: 'var(--accent-green)',
-              fontSize: '0.75rem',
-              minWidth: 0,
-              p: 0,
-            }}
-          >
-            Return to this month
-          </Button>
-        )}
       </div>
       <IconButton
         aria-label="Next month"
         onClick={() => onChange(shiftBudgetMonth(month, 1))}
         color="inherit"
       >
-        →
+        <ChevronRightRounded />
       </IconButton>
+      {month !== toBudgetMonth(new Date()) && (
+        <Button
+          size="small"
+          onClick={() => onChange(toBudgetMonth(new Date()))}
+          sx={{
+            color: 'var(--accent-green)',
+            fontSize: '0.75rem',
+            minWidth: 0,
+            px: 1,
+            py: 0.5,
+          }}
+        >
+          This month
+        </Button>
+      )}
     </div>
   );
 }
@@ -340,25 +436,36 @@ function BudgetSummary({
   onIncomeSave: (income: number) => Promise<boolean>;
 }) {
   return (
-    <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <SummaryCard label="Monthly income">
-        <IncomeEditor
-          key={income}
-          income={income}
-          disabled={disabled}
-          onSave={onIncomeSave}
-        />
-      </SummaryCard>
-      <SummaryCard
-        label="Assigned this month"
-        value={formatCurrency(summary.assigned)}
-      />
-      <SummaryCard
-        label="Prior-month surplus"
-        value={formatCurrency(summary.rollover)}
-        accent={summary.rollover > 0}
-      />
-      <SummaryCard label="Spent so far" value={formatCurrency(summary.spent)} />
+    <section
+      aria-label="Budget overview"
+      className="grid gap-5 rounded-xl border border-(--border) bg-(--surface) p-5 lg:grid-cols-[1fr_2fr] lg:items-center"
+    >
+      <BudgetStatus unassigned={summary.unassigned} status={summary.status} />
+      <div>
+        <div className="grid grid-cols-2 gap-5 sm:grid-cols-3">
+          <SummaryCard label="Monthly income">
+            <IncomeEditor
+              key={income}
+              income={income}
+              disabled={disabled}
+              onSave={onIncomeSave}
+            />
+          </SummaryCard>
+          <SummaryCard
+            label="Assigned"
+            value={formatCurrency(summary.assigned)}
+          />
+          <SummaryCard
+            label="Spent so far"
+            value={formatCurrency(summary.spent)}
+          />
+        </div>
+        {summary.rollover > 0 && (
+          <p className="numeric-value mt-3 text-xs text-(--text-secondary)">
+            +{formatCurrency(summary.rollover)} carried over from last month
+          </p>
+        )}
+      </div>
     </section>
   );
 }
@@ -366,26 +473,17 @@ function BudgetSummary({
 function SummaryCard({
   label,
   value,
-  accent,
   children,
 }: {
   label: string;
   value?: string;
-  accent?: boolean;
   children?: React.ReactNode;
 }) {
   return (
-    <div className="glass rounded-2xl p-4">
-      <p className="text-xs uppercase tracking-wider text-(--text-secondary)">
-        {label}
-      </p>
+    <div>
+      <p className="text-xs text-(--text-secondary)">{label}</p>
       {children ?? (
-        <p
-          className="numeric-value mt-2 text-2xl font-medium"
-          style={{
-            color: accent ? 'var(--accent-green)' : 'var(--text-primary)',
-          }}
-        >
+        <p className="numeric-value mt-1 text-xl font-medium text-(--text-primary)">
           {value}
         </p>
       )}
@@ -403,19 +501,71 @@ function IncomeEditor({
   onSave: (income: number) => Promise<boolean>;
 }) {
   const [value, setValue] = useState(String(income));
+  const [editing, setEditing] = useState(false);
+  const [invalid, setInvalid] = useState(false);
+  const cancelled = useRef(false);
+
+  if (!editing)
+    return (
+      <Button
+        color="inherit"
+        aria-label={`Edit monthly income, ${formatCurrency(income)}`}
+        disabled={disabled}
+        onClick={() => {
+          cancelled.current = false;
+          setValue(String(income));
+          setEditing(true);
+        }}
+        endIcon={
+          <EditOutlined sx={{ fontSize: '16px !important', opacity: 0.55 }} />
+        }
+        sx={{
+          p: 0,
+          mt: 0.5,
+          minWidth: 0,
+          fontSize: '1.25rem',
+          fontVariantNumeric: 'tabular-nums',
+          '&:hover': { transform: 'none' },
+        }}
+      >
+        {formatCurrency(income)}
+      </Button>
+    );
 
   return (
-    <div className="mt-2">
+    <div className="mt-1">
       <AppTextField
+        autoFocus
         variant="standard"
         type="number"
         value={value}
         disabled={disabled}
-        onChange={(event) => setValue(event.target.value)}
-        onBlur={() => {
+        error={invalid}
+        helperText={invalid ? 'Enter zero or a positive income.' : undefined}
+        onChange={(event) => {
+          setValue(event.target.value);
+          setInvalid(false);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            (event.target as HTMLInputElement).blur();
+          }
+          if (event.key === 'Escape') {
+            cancelled.current = true;
+            setInvalid(false);
+            setEditing(false);
+          }
+        }}
+        onBlur={async () => {
+          if (cancelled.current) return;
           const next = Number(value);
-          if (Number.isFinite(next) && next >= 0 && next !== income)
-            void onSave(next);
+          if (!value.trim() || !Number.isFinite(next) || next < 0) {
+            setInvalid(true);
+            return;
+          }
+          if (next !== income && !(await onSave(next))) return;
+          setEditing(false);
         }}
         slotProps={{
           htmlInput: { 'aria-label': 'Monthly income', min: 0, step: '0.01' },
@@ -430,7 +580,7 @@ function IncomeEditor({
           '& .MuiInputBase-root': {
             color: 'var(--text-primary)',
             fontFamily: 'var(--font-sans), sans-serif',
-            fontSize: '1.5rem',
+            fontSize: '1.25rem',
             fontVariantNumeric: 'tabular-nums',
             fontWeight: 500,
             lineHeight: 1.25,
@@ -465,40 +615,32 @@ function BudgetStatus({
   const content =
     status === 'balanced'
       ? {
-          title: 'Every dollar is planned',
-          detail: 'Your income and category assignments are balanced.',
+          title: 'Fully assigned',
           color: 'var(--accent-green)',
         }
       : status === 'under-planned'
         ? {
-            title: `${formatCurrency(unassigned)} still needs a job`,
-            detail:
-              'Assign the remaining income to categories to finish this plan.',
+            title: 'Left to assign',
             color: 'var(--accent-amber)',
           }
         : {
-            title: `${formatCurrency(Math.abs(unassigned))} over income`,
-            detail: 'Reduce category assignments until the plan reaches zero.',
+            title: 'Over-assigned',
             color: 'var(--accent-red)',
           };
 
   return (
     <div
-      className="flex items-start gap-3 rounded-2xl border bg-(--surface) p-4"
+      role="status"
+      aria-label="Budget balance"
+      className="border-l-4 pl-4"
       style={{ borderColor: content.color }}
     >
-      <span
-        className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
-        style={{ background: content.color }}
-      />
-      <div>
-        <p className="font-medium" style={{ color: content.color }}>
-          {content.title}
-        </p>
-        <p className="mt-0.5 text-sm text-(--text-secondary)">
-          {content.detail}
-        </p>
-      </div>
+      <p className="text-sm font-medium" style={{ color: content.color }}>
+        {content.title}
+      </p>
+      <p className="numeric-value mt-1 text-3xl font-semibold text-(--text-primary)">
+        {formatCurrency(Math.abs(unassigned))}
+      </p>
     </div>
   );
 }
@@ -506,6 +648,9 @@ function BudgetStatus({
 function BudgetGroupCard({
   snapshot,
   disabled,
+  editing,
+  collapsed,
+  onToggle,
   onAllocationChange,
   onAddCategory,
   onDeleteCategory,
@@ -515,6 +660,9 @@ function BudgetGroupCard({
     typeof import('@/app/budget/_lib/budget').calculateMonthlyBudget
   >['groups'][number];
   disabled: boolean;
+  editing: boolean;
+  collapsed: boolean;
+  onToggle: () => void;
   onAllocationChange: (categoryId: string, amount: number) => Promise<boolean>;
   onAddCategory: (groupId: string, name: string) => Promise<boolean>;
   onDeleteCategory: (categoryId: string) => Promise<boolean>;
@@ -522,127 +670,140 @@ function BudgetGroupCard({
 }) {
   const [addingCategory, setAddingCategory] = useState(false);
   const [categoryName, setCategoryName] = useState('');
-  const [editingGroup, setEditingGroup] = useState(false);
   const { group } = snapshot;
 
   return (
-    <article className="glass overflow-hidden rounded-2xl">
-      <header className="flex items-center justify-between gap-4 border-b border-(--border) px-4 py-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 className="font-medium text-(--text-primary)">{group.name}</h3>
-            {group.is_system && (
-              <span className="rounded-full bg-(--accent-green-glow) px-2 py-0.5 text-[0.65rem] uppercase tracking-wider text-(--accent-green)">
-                Synced
-              </span>
-            )}
-          </div>
-          <p className="numeric-value mt-0.5 text-xs text-(--text-secondary)">
-            {formatCurrency(snapshot.spent)} spent of{' '}
-            {formatCurrency(snapshot.available)} available
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+    <article
+      aria-label={`${group.name} group`}
+      className="border-b border-(--border) last:border-b-0"
+    >
+      <h3>
+        <ButtonBase
+          aria-label={`${collapsed ? 'Expand' : 'Collapse'} ${group.name} group`}
+          aria-expanded={!collapsed}
+          aria-controls={`budget-group-${group.id}`}
+          onClick={onToggle}
+          className="grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_130px_100px_120px]"
+          sx={{
+            display: 'grid',
+            width: '100%',
+            px: 2,
+            py: 1.5,
+            textAlign: 'left',
+            bgcolor: 'action.hover',
+            '&.Mui-focusVisible': {
+              outline: '2px solid',
+              outlineColor: 'primary.main',
+              outlineOffset: -2,
+            },
+          }}
+        >
+          <span className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+            <ExpandMoreRounded
+              fontSize="small"
+              sx={{
+                transform: collapsed ? 'rotate(-90deg)' : undefined,
+                color: 'text.secondary',
+              }}
+            />
+            <span className="truncate">{group.name}</span>
+          </span>
+          <span className="numeric-value hidden text-right text-sm sm:block">
+            {collapsed ? formatCurrency(snapshot.planned) : ''}
+          </span>
+          <span className="numeric-value hidden text-right text-sm text-(--text-secondary) sm:block">
+            {collapsed ? formatCurrency(snapshot.spent) : ''}
+          </span>
           <span
-            className="numeric-value text-lg font-medium"
+            className="numeric-value text-right text-sm"
             style={{
               color:
                 snapshot.remaining < 0
                   ? 'var(--accent-red)'
-                  : 'var(--text-primary)',
+                  : 'var(--text-secondary)',
             }}
           >
-            {formatCurrency(snapshot.remaining)}
+            {collapsed ? (
+              <>
+                {formatCurrency(snapshot.remaining)}
+                <span className="ml-1 text-xs sm:hidden">left</span>
+              </>
+            ) : null}
           </span>
-          {!group.is_system && (
-            <Button
-              size="small"
-              color="inherit"
-              aria-pressed={editingGroup}
-              aria-label={
-                editingGroup
-                  ? `Finish editing ${group.name} group`
-                  : `Edit ${group.name} group`
-              }
-              onClick={() => {
-                setEditingGroup((current) => !current);
-                setAddingCategory(false);
-              }}
-              sx={{ color: 'var(--text-secondary)', minWidth: 0, px: 1 }}
-            >
-              {editingGroup ? 'Done' : 'Edit'}
-            </Button>
-          )}
-        </div>
-      </header>
-
-      <div className="hidden grid-cols-[minmax(0,1fr)_130px_110px_150px] gap-3 border-b border-(--border) px-4 py-2 text-[0.65rem] uppercase tracking-wider text-(--text-secondary) sm:grid">
-        <span>Category</span>
-        <span>Plan</span>
-        <span>Spent</span>
-        <span>Remaining</span>
-      </div>
-      <div className="divide-y divide-(--border)">
-        {snapshot.categories.map((categorySnapshot) => (
-          <CategoryRow
-            key={`${categorySnapshot.category.id}:${categorySnapshot.planned}`}
-            snapshot={categorySnapshot}
-            disabled={disabled}
-            editing={editingGroup}
-            onAllocationChange={onAllocationChange}
-            onDelete={onDeleteCategory}
-          />
-        ))}
-      </div>
-
-      <footer className="border-t border-(--border) px-4 py-3">
-        {addingCategory ? (
-          <form
-            className="flex gap-2"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              const success = await onAddCategory(group.id, categoryName);
-              if (success) {
-                setCategoryName('');
-                setAddingCategory(false);
-              }
-            }}
-          >
-            <AppTextField
-              autoFocus
-              value={categoryName}
-              onChange={(event) => setCategoryName(event.target.value)}
-              placeholder="Category name"
-              slotProps={{ htmlInput: { 'aria-label': 'Category name' } }}
-              sx={{ flex: 1 }}
+        </ButtonBase>
+      </h3>
+      <div id={`budget-group-${group.id}`} hidden={collapsed}>
+        <div>
+          {snapshot.categories.map((categorySnapshot) => (
+            <CategoryRow
+              key={`${categorySnapshot.category.id}:${categorySnapshot.planned}`}
+              snapshot={categorySnapshot}
+              disabled={disabled}
+              editing={editing}
+              onAllocationChange={onAllocationChange}
+              onDelete={onDeleteCategory}
             />
-            <PrimaryButton
-              type="submit"
-              size="small"
-              disabled={disabled || !categoryName.trim()}
-              sx={{ minWidth: 64, px: 2 }}
-            >
-              Add
-            </PrimaryButton>
-            <SecondaryButton
-              size="small"
-              onClick={() => setAddingCategory(false)}
-              sx={{ minWidth: 72, px: 2 }}
-            >
-              Cancel
-            </SecondaryButton>
-          </form>
-        ) : (
-          !group.is_system && (
-            <div className="flex items-center justify-between gap-3">
-              <Button
-                onClick={() => setAddingCategory(true)}
-                sx={{ color: 'var(--accent-green)', minWidth: 0, p: 0 }}
+          ))}
+        </div>
+        {snapshot.categories.length === 0 && (
+          <p className="px-4 py-3 text-sm text-(--text-secondary)">
+            No categories yet. Use Edit groups to add one.
+          </p>
+        )}
+        {editing && group.is_system && (
+          <p className="px-4 py-3 text-xs text-(--text-secondary)">
+            Debt categories are synced from Manage Debts.
+          </p>
+        )}
+        {editing && !group.is_system && (
+          <footer className="border-t border-(--border) px-4 py-3">
+            {addingCategory ? (
+              <form
+                className="flex flex-wrap gap-2"
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  const success = await onAddCategory(group.id, categoryName);
+                  if (success) {
+                    setCategoryName('');
+                    setAddingCategory(false);
+                  }
+                }}
               >
-                + Add category
-              </Button>
-              {editingGroup && (
+                <AppTextField
+                  autoFocus
+                  value={categoryName}
+                  onChange={(event) => setCategoryName(event.target.value)}
+                  placeholder="Category name"
+                  slotProps={{ htmlInput: { 'aria-label': 'Category name' } }}
+                  sx={{ flex: 1 }}
+                />
+                <PrimaryButton
+                  type="submit"
+                  size="small"
+                  disabled={disabled || !categoryName.trim()}
+                  sx={{ minWidth: 64, px: 2 }}
+                >
+                  Add
+                </PrimaryButton>
+                <SecondaryButton
+                  size="small"
+                  onClick={() => setAddingCategory(false)}
+                  sx={{ minWidth: 72, px: 2 }}
+                >
+                  Cancel
+                </SecondaryButton>
+              </form>
+            ) : (
+              <div className="flex items-center justify-between gap-3">
                 <Button
+                  disabled={disabled}
+                  onClick={() => setAddingCategory(true)}
+                  sx={{ color: 'var(--accent-green)', minWidth: 0, p: 0 }}
+                >
+                  + Add category
+                </Button>
+                <Button
+                  disabled={disabled}
                   color="error"
                   size="small"
                   aria-label={`Remove ${group.name} group`}
@@ -651,11 +812,11 @@ function BudgetGroupCard({
                 >
                   Remove group
                 </Button>
-              )}
-            </div>
-          )
+              </div>
+            )}
+          </footer>
         )}
-      </footer>
+      </div>
     </article>
   );
 }
@@ -676,14 +837,14 @@ function CategoryRow({
   onDelete: (categoryId: string) => Promise<boolean>;
 }) {
   const [planned, setPlanned] = useState(String(snapshot.planned));
-  const percent =
-    snapshot.available > 0
-      ? Math.min(100, (snapshot.spent / snapshot.available) * 100)
-      : 0;
 
   return (
-    <div className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_130px_110px_150px] sm:items-center">
-      <div className="min-w-0">
+    <div
+      role="group"
+      aria-label={`${snapshot.category.name} category`}
+      className="grid grid-cols-3 gap-x-3 gap-y-2 border-t border-(--border) px-4 py-2 sm:grid-cols-[minmax(0,1fr)_130px_100px_120px] sm:items-center"
+    >
+      <div className="col-span-3 min-w-0 sm:col-span-1">
         <div className="flex items-center gap-2">
           <p className="truncate text-sm font-medium text-(--text-primary)">
             {snapshot.category.name}
@@ -696,57 +857,78 @@ function CategoryRow({
         </div>
         {snapshot.rollover > 0 && (
           <p className="numeric-value mt-0.5 text-xs text-(--accent-green)">
-            +{formatCurrency(snapshot.rollover)} surplus from last month
+            +{formatCurrency(snapshot.rollover)} from last month
           </p>
         )}
-        <div className="mt-2 h-1 overflow-hidden rounded-full bg-(--surface-2)">
-          <div
-            className="h-full rounded-full"
-            style={{
-              width: `${percent}%`,
-              background:
-                snapshot.remaining < 0
-                  ? 'var(--accent-red)'
-                  : 'var(--accent-green)',
-            }}
-          />
-        </div>
+        {editing && !snapshot.category.is_system && (
+          <Button
+            color="error"
+            size="small"
+            disabled={disabled}
+            aria-label={`Remove ${snapshot.category.name} category`}
+            onClick={() => void onDelete(snapshot.category.id)}
+            sx={{ fontSize: '0.75rem', minWidth: 0, p: 0, mt: 0.5 }}
+          >
+            Remove
+          </Button>
+        )}
       </div>
-      <AppTextField
-        className="numeric-value"
-        type="number"
-        disabled={disabled}
-        value={planned}
-        onChange={(event) => setPlanned(event.target.value)}
-        onBlur={() => {
-          const next = Number(planned);
-          if (Number.isFinite(next) && next >= 0 && next !== snapshot.planned)
-            void onAllocationChange(snapshot.category.id, next);
-        }}
-        slotProps={{
-          htmlInput: {
-            'aria-label': `${snapshot.category.name} planned amount`,
-            min: 0,
-            step: '0.01',
-          },
-          input: {
-            startAdornment: <InputAdornment position="start">$</InputAdornment>,
-          },
-        }}
-        sx={{
-          '& .MuiInputBase-input': { fontSize: '0.875rem', textAlign: 'right' },
-        }}
-      />
-      <div className="flex justify-between text-sm sm:block">
-        <span className="text-(--text-secondary) sm:hidden">Spent</span>
-        <span className="numeric-value text-(--text-primary)">
+      <div>
+        <span className="mb-1 block text-xs text-(--text-secondary) sm:hidden">
+          Planned
+        </span>
+        <AppTextField
+          className="numeric-value"
+          type="number"
+          disabled={disabled}
+          value={planned}
+          onChange={(event) => setPlanned(event.target.value)}
+          onBlur={() => {
+            const next = Number(planned);
+            if (Number.isFinite(next) && next >= 0 && next !== snapshot.planned)
+              void onAllocationChange(snapshot.category.id, next);
+          }}
+          slotProps={{
+            htmlInput: {
+              'aria-label': `${snapshot.category.name} planned amount`,
+              min: 0,
+              step: '0.01',
+            },
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">$</InputAdornment>
+              ),
+            },
+          }}
+          sx={{
+            '& .MuiOutlinedInput-root': {
+              bgcolor: 'transparent',
+              '& fieldset': { borderColor: 'transparent' },
+              '&:hover fieldset': { borderColor: 'divider' },
+            },
+            '& .MuiInputBase-input': {
+              fontSize: '0.875rem',
+              fontVariantNumeric: 'tabular-nums',
+              textAlign: 'right',
+              py: 1,
+            },
+          }}
+        />
+      </div>
+      <div className="text-right text-sm">
+        <span className="mb-1 block text-xs text-(--text-secondary) sm:hidden">
+          Spent
+        </span>
+        <span className="numeric-value inline-block py-2 text-(--text-secondary)">
           {formatCurrency(snapshot.spent)}
         </span>
       </div>
-      <div className="flex items-center justify-between gap-2 text-sm">
-        <span className="text-(--text-secondary) sm:hidden">Remaining</span>
+      <div className="text-right text-sm">
+        <span className="mb-1 block text-xs text-(--text-secondary) sm:hidden">
+          Remaining
+        </span>
         <span
-          className="numeric-value"
+          className="numeric-value inline-block py-2 font-medium"
           style={{
             color:
               snapshot.remaining < 0
@@ -756,17 +938,6 @@ function CategoryRow({
         >
           {formatCurrency(snapshot.remaining)}
         </span>
-        {editing && !snapshot.category.is_system && (
-          <Button
-            color="error"
-            size="small"
-            aria-label={`Remove ${snapshot.category.name} category`}
-            onClick={() => void onDelete(snapshot.category.id)}
-            sx={{ fontSize: '0.75rem', minWidth: 0, px: 1 }}
-          >
-            Remove
-          </Button>
-        )}
       </div>
     </div>
   );
@@ -789,6 +960,7 @@ function TransactionList({
   categories: BudgetCategory[];
   onDelete: (transactionId: string) => Promise<boolean>;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const categoryById = useMemo(
     () => new Map(categories.map((category) => [category.id, category])),
     [categories],
@@ -804,16 +976,42 @@ function TransactionList({
   }, [splits]);
 
   return (
-    <section className="flex flex-col gap-3">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-(--text-secondary)">
-          Activity
-        </p>
-        <h2 className="mt-1 font-serif text-2xl text-(--text-primary)">
-          Transactions
-        </h2>
-      </div>
-      <div className="glass overflow-hidden rounded-2xl">
+    <section className="overflow-hidden rounded-xl border border-(--border) bg-(--surface)">
+      <h2>
+        <ButtonBase
+          aria-expanded={expanded}
+          aria-controls="budget-transactions"
+          onClick={() => setExpanded(!expanded)}
+          sx={{
+            width: '100%',
+            justifyContent: 'space-between',
+            p: 2,
+            '&.Mui-focusVisible': {
+              outline: '2px solid',
+              outlineColor: 'primary.main',
+              outlineOffset: -2,
+            },
+          }}
+        >
+          <span className="text-sm font-semibold">
+            Transactions{' '}
+            <span className="numeric-value ml-2 font-normal text-(--text-secondary)">
+              {transactions.length}
+            </span>
+          </span>
+          <ExpandMoreRounded
+            sx={{
+              transform: expanded ? 'rotate(180deg)' : undefined,
+              color: 'text.secondary',
+            }}
+          />
+        </ButtonBase>
+      </h2>
+      <div
+        id="budget-transactions"
+        hidden={!expanded}
+        className="border-t border-(--border)"
+      >
         {transactions.length === 0 ? (
           <p className="px-5 py-10 text-center text-sm text-(--text-secondary)">
             No transactions in this month yet.
@@ -1202,6 +1400,7 @@ function ReceiptImageButton({
     >
       {label}
       <input
+        aria-label={label}
         hidden
         type="file"
         accept={RECEIPT_IMAGE_TYPES.join(',')}
