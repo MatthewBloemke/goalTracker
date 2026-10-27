@@ -75,6 +75,18 @@ npx supabase functions deploy analyze-receipt
 
 The access-control migration is required. No transaction-schema migration is needed; the existing `budget_transactions` and `budget_transaction_splits` tables already represent single- and multi-category receipts.
 
+## Receipt access-check 503 repair
+
+If the function logs `Receipt analysis access check failed` with code `42883`, apply `20261027000000_fix_receipt_analysis_quota_clock.sql` with `npx supabase db push`. The original quota function used `current_time` as a timestamp variable, but SQL interprets it as the built-in time-only expression. The repair renames it to `quota_checked_at` throughout the quota function.
+
+This database-only repair preserves existing grants, limits and request history. It does not require an Edge Function redeployment, frontend deployment, or OpenAI secret change.
+
+The isolated PostgreSQL regression test reproduces the original failure, applies the repair, and checks approved scans, hourly/daily limits, retry delays, expired windows, permissions, and denied access. It uses the same optional PGlite setup as `scripts/test-recipes-db.mjs` and never connects to Supabase or OpenAI:
+
+```powershell
+node scripts/test-receipt-access-db.mjs <path-to-pglite-dist/index.js>
+```
+
 ## Manual testing
 
 ### Restaurant receipt
