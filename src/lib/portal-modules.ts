@@ -26,7 +26,7 @@ export const portalModules: PortalModule[] = [
     href: '/meal-planning',
     name: 'Meal Planning',
     shortName: 'Meals',
-    description: 'Save and share family recipes, find favorites by tag, and build shopping lists.',
+    description: 'Plan meals by week or month, collect family recipes, and build shopping lists.',
     eyebrow: 'Kitchen',
     accent: '#f5a623',
     icon: 'M',

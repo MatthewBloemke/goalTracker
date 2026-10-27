@@ -43,6 +43,7 @@ try {
     '20260824000000_secure_receipt_analysis_access.sql',
     '20261009000000_task_planner.sql',
     '20261012000000_recipes.sql',
+    '20261025000000_meal_planning.sql',
   ]) {
     await db.exec(
       readFileSync(
@@ -98,6 +99,54 @@ try {
     null,
     null,
   );
+  const plan = async (recipe, scope = family, title = 'Soup night') =>
+    (
+      await db.query(
+        `insert into public.meal_plan_entries(user_id, family_id, recipe_id, meal_date, meal_type, title)
+      values(auth.uid(), $1, $2, '2026-10-25', 'dinner', $3) returning id`,
+        [scope, recipe, title],
+      )
+    ).rows[0].id;
+  const familyMeal = await plan(recipeId);
+  const personalMeal = await plan(personalId, null, 'Personal soup night');
+  const customMeal = await plan(null, family, 'Leftovers');
+  await assert.rejects(plan(personalId, family), /same personal or family/);
+  await assert.rejects(plan(recipeId, null), /same personal or family/);
+  for (const invalid of [
+    "meal_type = 'brunch'",
+    "title = ' '",
+    "notes = repeat('x', 4001)",
+    "meal_date = 'infinity'",
+  ]) {
+    await assert.rejects(
+      db.query(`update public.meal_plan_entries set ${invalid} where id = $1`, [
+        familyMeal,
+      ]),
+    );
+  }
+  await assert.rejects(
+    db.query(
+      "update public.meal_plan_entries set meal_date = '2026-02-30' where id = $1",
+      [familyMeal],
+    ),
+  );
+  assert.equal(
+    (
+      await db.query(
+        'select id from public.meal_plan_entries where family_id = $1',
+        [family],
+      )
+    ).rows.length,
+    2,
+  );
+  assert.equal(
+    (
+      await db.query(
+        'select id from public.meal_plan_entries where family_id is null and user_id = auth.uid()',
+      )
+    ).rows.length,
+    1,
+  );
   const ingredients = (
     await db.query(
       'select id from public.recipe_ingredients where recipe_id = $1',
@@ -129,6 +178,96 @@ try {
   );
 
   await login(bob);
+  assert.equal(
+    (await db.query('select id from public.meal_plan_entries')).rows.length,
+    2,
+  );
+  const revision = (
+    await db.query(
+      'select updated_at::text from public.meal_plan_entries where id = $1',
+      [familyMeal],
+    )
+  ).rows[0].updated_at;
+  assert.equal(
+    (
+      await db.query(
+        `update public.meal_plan_entries set meal_date = '2026-10-26', notes = 'Bob is cooking'
+    where id = $1 and updated_at = $2::timestamptz returning id`,
+        [familyMeal, revision],
+      )
+    ).rows.length,
+    1,
+  );
+  assert.equal(
+    (
+      await db.query(
+        `update public.meal_plan_entries set title = 'Stale overwrite'
+    where id = $1 and updated_at = $2::timestamptz returning id`,
+        [familyMeal, revision],
+      )
+    ).rows.length,
+    0,
+  );
+  assert.equal(
+    (
+      await db.query(
+        'delete from public.meal_plan_entries where id = $1 and updated_at = $2::timestamptz returning id',
+        [familyMeal, revision],
+      )
+    ).rows.length,
+    0,
+  );
+  await assert.rejects(
+    db.query(
+      'update public.meal_plan_entries set family_id = null where id = $1',
+      [familyMeal],
+    ),
+    /cannot be moved/,
+  );
+  await assert.rejects(
+    db.query(
+      'update public.meal_plan_entries set user_id = auth.uid() where id = $1',
+      [familyMeal],
+    ),
+    /cannot be moved/,
+  );
+  await assert.rejects(plan(personalId), /same personal or family/);
+  const bobMeal = await plan(recipeId, family, 'Bob’s soup');
+  const bobPersonal = await plan(null, null, 'My personal plan');
+  await db.exec('reset role');
+  await db.query('delete from public.family_members where user_id = $1', [bob]);
+  await login(bob);
+  assert.deepEqual(
+    (await db.query('select id from public.meal_plan_entries')).rows.map(
+      (row) => row.id,
+    ),
+    [bobPersonal],
+  );
+  assert.equal(
+    (
+      await db.query(
+        'delete from public.meal_plan_entries where id = $1 returning id',
+        [bobMeal],
+      )
+    ).rows.length,
+    0,
+  );
+  await assert.rejects(plan(null, family), /row-level security/);
+  await db.exec('reset role');
+  await db.query('insert into public.family_members values($1, $2)', [
+    bob,
+    family,
+  ]);
+  await login(bob);
+  assert.equal(
+    (
+      await db.query(
+        'select id from public.meal_plan_entries where family_id = $1',
+        [family],
+      )
+    ).rows.length,
+    3,
+  );
   assert.equal(
     (await db.query('select id from public.recipes')).rows.length,
     1,
@@ -194,6 +333,30 @@ try {
   );
 
   await login(outsider);
+  assert.equal(
+    (await db.query('select * from public.meal_plan_entries')).rows.length,
+    0,
+  );
+  await assert.rejects(plan(null, family), /row-level security/);
+  await assert.rejects(plan(recipeId, otherFamily), /same personal or family/);
+  assert.equal(
+    (
+      await db.query(
+        "update public.meal_plan_entries set title = 'Attack' where id = $1 returning id",
+        [familyMeal],
+      )
+    ).rows.length,
+    0,
+  );
+  assert.equal(
+    (
+      await db.query(
+        'delete from public.meal_plan_entries where id = $1 returning id',
+        [personalMeal],
+      )
+    ).rows.length,
+    0,
+  );
   assert.equal((await db.query('select * from public.recipes')).rows.length, 0);
   assert.equal(
     (await db.query('select * from public.recipe_ingredients')).rows.length,
@@ -269,6 +432,37 @@ try {
     { allowed: false, reason: 'not_approved' },
   );
   await db.query('delete from public.recipes where id = $1', [recipeId]);
+  const retained = (
+    await db.query(
+      'select title, recipe_id, meal_date::text from public.meal_plan_entries where id = $1',
+      [familyMeal],
+    )
+  ).rows[0];
+  assert.deepEqual(retained, {
+    title: 'Soup night',
+    recipe_id: null,
+    meal_date: '2026-10-26',
+  });
+  assert.equal(
+    (
+      await db.query(
+        'select recipe_id from public.meal_plan_entries where id = $1',
+        [bobMeal],
+      )
+    ).rows[0].recipe_id,
+    null,
+  );
+  await db.query('delete from public.meal_plan_entries where id = $1', [
+    customMeal,
+  ]);
+  assert.equal(
+    (
+      await db.query('select id from public.meal_plan_entries where id = $1', [
+        customMeal,
+      ])
+    ).rows.length,
+    0,
+  );
   assert.equal(
     (
       await db.query(
@@ -287,7 +481,7 @@ try {
     1,
   );
   console.log(
-    'PASS: recipe migration, scoped RLS, atomic save/rollback, stale edit protection, shopping integration, quota approval/revocation and hourly/daily limits.',
+    'PASS: recipe and meal-plan migrations, scoped RLS, personal/family separation, membership changes, stale edit/delete protection, recipe deletion retention, validation, atomic save/rollback, shopping integration and AI quotas.',
   );
 } finally {
   await db.close();

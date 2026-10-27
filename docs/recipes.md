@@ -85,4 +85,4 @@ Manual acceptance checks after deployment:
 6. Try text with no recipe, an overlong input, `http://127.0.0.1/` and a private-address redirect. Verify clear errors and no saved recipe. Tests also cover private/mixed DNS answers and DNS rebinding. Mock an incomplete model response to verify no partial output is used.
 7. Use an unapproved user and a user at the configured quota: AI should fail while manual entry and file import still work. Confirm one family cannot read/write another's recipes or shopping lists.
 
-Useful next additions: serving scaling, a weekly meal calendar, favorites, and pantry-aware consolidation. Those are deliberately outside this first recipe-library implementation.
+The weekly/monthly calendar is now the main Meal Planning page; the library lives under the Recipes tab. See [meal planning](meal-planning.md) for its migration and testing steps. Useful next additions include serving scaling, favorites and pantry-aware shopping consolidation.

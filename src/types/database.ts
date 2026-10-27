@@ -607,6 +607,12 @@ export type Database = {
           },
         ]
       }
+      meal_plan_entries: {
+        Row: { id: string; user_id: string; family_id: string | null; recipe_id: string | null; meal_date: string; meal_type: string; title: string; notes: string; created_at: string; updated_at: string }
+        Insert: { id?: string; user_id: string; family_id?: string | null; recipe_id?: string | null; meal_date: string; meal_type: string; title: string; notes?: string; created_at?: string; updated_at?: string }
+        Update: { recipe_id?: string | null; meal_date?: string; meal_type?: string; title?: string; notes?: string }
+        Relationships: [{ foreignKeyName: "meal_plan_entries_recipe_id_fkey"; columns: ["recipe_id"]; isOneToOne: false; referencedRelation: "recipes"; referencedColumns: ["id"] }]
+      }
       recipes: {
         Row: { id: string; user_id: string; family_id: string | null; title: string; servings: number | null; source_url: string; notes: string; tags: string[]; created_at: string; updated_at: string }
         Insert: { id?: string; user_id: string; family_id?: string | null; title: string; servings?: number | null; source_url?: string; notes?: string; tags?: string[]; created_at?: string; updated_at?: string }
