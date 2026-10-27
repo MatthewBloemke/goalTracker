@@ -1,29 +1,20 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Tab, Tabs } from '@mui/material';
+import { SectionNav } from '@/components/ui/SectionNav';
+
+const links = [
+  { href: '/meal-planning', label: 'Meal plan' },
+  { href: '/meal-planning/recipes', label: 'Recipes' },
+];
 
 export function MealPlanningNav() {
-  const pathname = usePathname();
   return (
-    <Tabs
-      value={pathname.startsWith('/meal-planning/recipes') ? 'recipes' : 'plan'}
-      aria-label="Meal planning sections"
-      sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}
-    >
-      <Tab
-        component={Link}
-        href="/meal-planning"
-        value="plan"
-        label="Meal plan"
+    <div className="mb-6">
+      <SectionNav
+        label="Meal Planning"
+        ariaLabel="Meal planning sections"
+        links={links}
       />
-      <Tab
-        component={Link}
-        href="/meal-planning/recipes"
-        value="recipes"
-        label="Recipes"
-      />
-    </Tabs>
+    </div>
   );
 }

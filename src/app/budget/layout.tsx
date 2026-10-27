@@ -6,7 +6,7 @@ export default function BudgetLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4 sm:gap-6">
       <BudgetNav />
       {children}
     </div>

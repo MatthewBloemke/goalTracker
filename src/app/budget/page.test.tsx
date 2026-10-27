@@ -246,7 +246,7 @@ test('edit groups reveals category and group actions but protects synced debt ca
   fireEvent.change(food.getByLabelText('Category name'), {
     target: { value: 'Restaurants' },
   });
-  fireEvent.click(food.getByRole('button', { name: 'Add', exact: true }));
+  fireEvent.click(food.getByRole('button', { name: 'Add' }));
   await waitFor(() =>
     expect(mockData.createCategory).toHaveBeenCalledWith('food', 'Restaurants'),
   );
