@@ -59,7 +59,13 @@ test('weeks always run Sunday through Saturday, including across years', () => {
     '2026-10-31',
   ]);
   expect(calendarDays('2026-01-01', 'week')[0]).toBe('2025-12-28');
-  expect(periodLabel('2026-01-01', 'week')).toBe('Dec 28, 2025 – Jan 3, 2026');
+  expect(periodLabel('2026-01-01', 'week')).toMatch(
+    /^Dec 28, 2025\s–\sJan 3, 2026$/,
+  );
+});
+test('week labels collapse repeated months and years while preserving boundary context', () => {
+  expect(periodLabel('2026-10-25', 'week')).toMatch(/^Oct 25\s?–\s?31, 2026$/);
+  expect(periodLabel('2026-09-30', 'week')).toMatch(/^Sep 27\s–\sOct 3, 2026$/);
 });
 test('month calendars include boundary days and four, five or six complete weeks', () => {
   expect(calendarDays('2026-02-15', 'month')).toHaveLength(28);

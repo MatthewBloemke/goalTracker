@@ -3,8 +3,10 @@
 import { useState } from 'react';
 import {
   AddRounded,
+  CalendarMonthOutlined,
   ChevronLeftRounded,
   ChevronRightRounded,
+  NotesRounded,
   RefreshRounded,
 } from '@mui/icons-material';
 import {
@@ -12,8 +14,11 @@ import {
   Button,
   CircularProgress,
   IconButton,
+  Popover,
+  Snackbar,
   ToggleButton,
   ToggleButtonGroup,
+  Tooltip,
 } from '@mui/material';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { SecondaryButton } from '@/components/ui/SecondaryButton';
@@ -25,6 +30,7 @@ import {
   formatMealDate,
   isMealDate,
   localToday,
+  MEAL_TYPES,
   mealLabels,
   mealsOnDate,
   periodLabel,
@@ -34,6 +40,8 @@ import {
   type PlannedMeal,
 } from '../_lib/meal-plan';
 import { MealEditor } from './MealEditor';
+import { MealTypeLabel } from './MealTypeLabel';
+import { getMealColors } from '../_lib/meal-colors';
 
 export function MealPlanner({
   familyId,
@@ -49,6 +57,7 @@ export function MealPlanner({
     existing?: PlannedMeal;
   } | null>(null);
   const [notice, setNotice] = useState('');
+  const [datePicker, setDatePicker] = useState<HTMLButtonElement | null>(null);
   const days = calendarDays(anchor, view);
   const { meals, loading, error, realtimeError, refresh, save, remove } =
     useMealPlan(familyId, days[0], days[days.length - 1]);
@@ -58,22 +67,21 @@ export function MealPlanner({
     view === 'month'
       ? meals.filter((meal) => meal.meal_date.startsWith(anchor.slice(0, 7)))
       : meals;
-  const plannedDays = new Set(displayedMeals.map((meal) => meal.meal_date))
-    .size;
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-(--text-secondary)">
-            Meal Planning
-          </p>
-          <h1 className="mt-1 font-serif text-3xl">What’s on the menu?</h1>
-          <p className="mt-2 text-sm text-(--text-secondary)">
-            {familyName
-              ? `${familyName}’s shared meal plan`
-              : 'Your personal meal plan'}{' '}
-            · Make room for favorites and easy nights.
-          </p>
+    <div className="flex flex-col gap-5">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <h1 className="font-serif text-3xl">Meal plan</h1>
+          <span
+            className="rounded-full bg-(--surface-2) px-3 py-1 text-xs text-(--text-secondary)"
+            aria-label={
+              familyId
+                ? `Shared with ${familyName || 'your family'}`
+                : 'Personal meal plan'
+            }
+          >
+            {familyId ? familyName || 'Family' : 'Personal'}
+          </span>
         </div>
         <PrimaryButton
           startIcon={<AddRounded />}
@@ -89,36 +97,44 @@ export function MealPlanner({
         <Alert severity="error">Unable to load the meal plan: {error}</Alert>
       )}
       {realtimeError && <Alert severity="warning">{realtimeError}</Alert>}
-      {notice && (
-        <Alert severity="success" onClose={() => setNotice('')}>
-          {notice}
-        </Alert>
-      )}
       <section
-        className="glass flex flex-col gap-4 rounded-2xl p-4"
+        className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2"
         aria-label="Calendar controls"
       >
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-1">
-            <IconButton
-              aria-label={`Previous ${view}`}
-              onClick={() => setAnchor(shiftPeriod(anchor, view, -1))}
-            >
-              <ChevronLeftRounded />
-            </IconButton>
-            <h2
-              className="numeric-value text-base font-semibold sm:text-lg"
-              aria-live="polite"
-            >
-              {periodLabel(anchor, view)}
-            </h2>
-            <IconButton
-              aria-label={`Next ${view}`}
-              onClick={() => setAnchor(shiftPeriod(anchor, view, 1))}
-            >
-              <ChevronRightRounded />
-            </IconButton>
-          </div>
+        <div className="flex min-w-0 items-center gap-1">
+          <IconButton
+            aria-label={`Previous ${view}`}
+            onClick={() => setAnchor(shiftPeriod(anchor, view, -1))}
+          >
+            <ChevronLeftRounded />
+          </IconButton>
+          <h2
+            className="numeric-value text-center text-sm font-semibold sm:text-lg"
+            aria-live="polite"
+          >
+            {periodLabel(anchor, view)}
+          </h2>
+          <IconButton
+            aria-label={`Next ${view}`}
+            onClick={() => setAnchor(shiftPeriod(anchor, view, 1))}
+          >
+            <ChevronRightRounded />
+          </IconButton>
+          <SecondaryButton
+            size="small"
+            sx={{
+              minWidth: 0,
+              px: 1.5,
+              py: 0.75,
+              ml: 1,
+              borderColor: 'divider',
+            }}
+            onClick={() => setAnchor(localToday())}
+          >
+            Today
+          </SecondaryButton>
+        </div>
+        <div className="flex items-center gap-2">
           <ToggleButtonGroup
             exclusive
             size="small"
@@ -131,45 +147,66 @@ export function MealPlanner({
             <ToggleButton value="week">Week</ToggleButton>
             <ToggleButton value="month">Month</ToggleButton>
           </ToggleButtonGroup>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <SecondaryButton onClick={() => setAnchor(localToday())}>
-            Today
-          </SecondaryButton>
-          <AppTextField
-            label="Go to date"
-            type="date"
-            value={anchor}
-            sx={{ width: 190 }}
-            slotProps={{
-              inputLabel: { shrink: true },
-              htmlInput: { min: '1000-01-01', max: '9999-12-31' },
-            }}
-            onChange={(e) => {
-              if (isMealDate(e.target.value)) setAnchor(e.target.value);
-            }}
-          />
-          <SecondaryButton
-            startIcon={<RefreshRounded />}
-            onClick={() => {
-              void refresh();
-              void library.refresh();
-            }}
-          >
-            Refresh
-          </SecondaryButton>
-          {!loading && !error && (
-            <p className="ml-auto text-sm text-(--text-secondary)">
-              <span className="numeric-value font-semibold">
-                {displayedMeals.length}
-              </span>{' '}
-              meals ·{' '}
-              <span className="numeric-value font-semibold">{plannedDays}</span>{' '}
-              days planned
-            </p>
-          )}
+          <Tooltip title="Go to date">
+            <IconButton
+              aria-label="Choose date"
+              aria-haspopup="dialog"
+              aria-expanded={!!datePicker}
+              aria-controls={datePicker ? 'meal-calendar-date' : undefined}
+              onClick={(event) => setDatePicker(event.currentTarget)}
+            >
+              <CalendarMonthOutlined fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Refresh">
+            <IconButton
+              aria-label="Refresh"
+              onClick={() => {
+                void refresh();
+                void library.refresh();
+              }}
+            >
+              <RefreshRounded fontSize="small" />
+            </IconButton>
+          </Tooltip>
         </div>
       </section>
+      <Popover
+        open={!!datePicker}
+        anchorEl={datePicker}
+        onClose={() => setDatePicker(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        slotProps={{
+          paper: {
+            id: 'meal-calendar-date',
+            role: 'dialog',
+            'aria-label': 'Go to date',
+            sx: { p: 2 },
+          },
+        }}
+      >
+        <AppTextField
+          autoFocus
+          label="Go to date"
+          type="date"
+          value={anchor}
+          sx={{ width: 190 }}
+          slotProps={{
+            inputLabel: { shrink: true },
+            htmlInput: { min: '1000-01-01', max: '9999-12-31' },
+          }}
+          onChange={(e) => {
+            if (isMealDate(e.target.value)) setAnchor(e.target.value);
+          }}
+        />
+        <Button
+          onClick={() => setDatePicker(null)}
+          sx={{ display: 'block', ml: 'auto', mt: 1, px: 1.5, py: 0.5 }}
+        >
+          Done
+        </Button>
+      </Popover>
       {loading ? (
         <div className="p-10 text-center">
           <CircularProgress aria-label="Loading planned meals" />
@@ -177,18 +214,23 @@ export function MealPlanner({
       ) : (
         !error && (
           <>
-            {!displayedMeals.length && (
-              <Alert severity="info">
-                Nothing planned for this {view} yet. Add a saved recipe, or a
-                custom meal like leftovers or takeout.
-              </Alert>
-            )}
-            <p className="text-xs text-(--text-secondary)">
-              {view === 'month'
-                ? 'Select a meal to view or edit it. On small screens, swipe the calendar sideways.'
-                : 'Select a meal to open its recipe, add notes, or move it to another day.'}{' '}
-              Weeks start on Sunday.
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+              <ul
+                aria-label="Meal types"
+                className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-(--text-secondary)"
+              >
+                {MEAL_TYPES.map((type) => (
+                  <li key={type}>
+                    <MealTypeLabel type={type} />
+                  </li>
+                ))}
+              </ul>
+              <p className="numeric-value text-xs text-(--text-secondary)">
+                {displayedMeals.length
+                  ? `${displayedMeals.length} ${displayedMeals.length === 1 ? 'meal' : 'meals'} planned`
+                  : 'No meals planned yet'}
+              </p>
+            </div>
             <div
               className={
                 view === 'month'
@@ -223,7 +265,7 @@ export function MealPlanner({
                   className={
                     view === 'month'
                       ? 'grid grid-cols-7'
-                      : 'grid gap-3 sm:grid-cols-2 lg:grid-cols-4'
+                      : 'grid gap-3 sm:grid-cols-2 lg:grid-cols-7'
                   }
                 >
                   {days.map((date) => {
@@ -243,36 +285,42 @@ export function MealPlanner({
                         className={
                           view === 'month'
                             ? 'min-h-36 border-t border-r border-(--border) p-2'
-                            : 'glass min-h-44 rounded-2xl p-4'
+                            : 'min-w-0 min-h-32 rounded-xl border bg-(--surface) p-3 lg:min-h-56'
                         }
                         style={{
-                          background:
+                          borderColor:
                             date === today
-                              ? 'var(--accent-green-glow)'
-                              : outsideMonth
-                                ? 'var(--surface-2)'
-                                : undefined,
+                              ? 'var(--accent-green)'
+                              : 'var(--border)',
+                          background: outsideMonth
+                            ? 'var(--surface-2)'
+                            : undefined,
                         }}
                       >
-                        <div className="mb-3 flex items-center justify-between gap-1">
+                        <div className="mb-3 flex items-start justify-between gap-1">
                           <h3
                             className="numeric-value text-sm font-semibold"
                             aria-current={date === today ? 'date' : undefined}
                           >
-                            {formatMealDate(
-                              date,
-                              view === 'month'
-                                ? { month: 'short', day: 'numeric' }
-                                : {
-                                    weekday: 'short',
-                                    month: 'short',
-                                    day: 'numeric',
-                                  },
-                            )}
-                            {date === today && (
-                              <span className="ml-1 text-xs text-(--accent-green)">
-                                Today
+                            {view === 'week' && (
+                              <span className="mb-1 block text-xs font-medium text-(--text-secondary)">
+                                {formatMealDate(date, { weekday: 'short' })}
                               </span>
+                            )}
+                            <span
+                              className={
+                                date === today ? 'text-(--accent-green)' : ''
+                              }
+                            >
+                              {formatMealDate(
+                                date,
+                                view === 'month'
+                                  ? { month: 'short', day: 'numeric' }
+                                  : { day: 'numeric' },
+                              )}
+                            </span>
+                            {date === today && (
+                              <span className="sr-only"> (Today)</span>
                             )}
                           </h3>
                           <IconButton
@@ -293,34 +341,55 @@ export function MealPlanner({
                               onClick={() =>
                                 setEditor({ date, existing: meal })
                               }
-                              sx={{
-                                display: 'block',
-                                minWidth: 0,
-                                textAlign: 'left',
-                                whiteSpace: 'normal',
-                                overflowWrap: 'anywhere',
-                                px: 1,
-                                py: 0.75,
+                              sx={(theme) => {
+                                const colors = getMealColors(
+                                  meal.meal_type as MealType,
+                                  theme.palette.mode,
+                                );
+                                return {
+                                  display: 'block',
+                                  minWidth: 0,
+                                  textAlign: 'left',
+                                  whiteSpace: 'normal',
+                                  overflowWrap: 'anywhere',
+                                  bgcolor: colors.background,
+                                  borderColor: 'transparent',
+                                  borderLeft: `3px solid ${colors.accent}`,
+                                  color: 'text.primary',
+                                  '&:hover': {
+                                    bgcolor: colors.background,
+                                    borderColor: colors.accent,
+                                    transform: 'none',
+                                  },
+                                  '&.Mui-focusVisible': {
+                                    outline: `2px solid ${colors.text}`,
+                                    outlineOffset: 2,
+                                  },
+                                  '& .meal-type': { color: colors.text },
+                                  px: 1,
+                                  py: 0.75,
+                                };
                               }}
                             >
-                              <span className="block text-[10px] font-semibold uppercase tracking-wide text-(--text-secondary)">
+                              <span className="meal-type block text-[10px] font-semibold uppercase tracking-wide">
                                 {mealLabels[meal.meal_type as MealType]}
                               </span>
                               <span className="block text-sm leading-snug">
                                 {meal.title}
+                                {meal.notes && (
+                                  <NotesRounded
+                                    aria-label="Has notes"
+                                    sx={{
+                                      fontSize: 14,
+                                      ml: 0.5,
+                                      verticalAlign: 'middle',
+                                      opacity: 0.6,
+                                    }}
+                                  />
+                                )}
                               </span>
-                              {meal.notes && (
-                                <span className="block text-xs text-(--text-secondary)">
-                                  Has notes
-                                </span>
-                              )}
                             </Button>
                           ))}
-                          {!entries.length && (
-                            <p className="py-2 text-xs text-(--text-secondary)">
-                              Open for ideas
-                            </p>
-                          )}
                         </div>
                       </section>
                     );
@@ -331,6 +400,17 @@ export function MealPlanner({
           </>
         )
       )}
+      <Snackbar
+        open={!!notice}
+        autoHideDuration={4000}
+        onClose={(_, reason) => {
+          if (reason !== 'clickaway') setNotice('');
+        }}
+      >
+        <Alert severity="success" role="status" onClose={() => setNotice('')}>
+          {notice}
+        </Alert>
+      </Snackbar>
       {editor && (
         <MealEditor
           date={editor.date}

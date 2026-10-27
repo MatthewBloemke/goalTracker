@@ -85,8 +85,12 @@ export function periodLabel(anchor: string, view: CalendarView): string {
   if (view === 'month')
     return formatMealDate(anchor, { month: 'long', year: 'numeric' });
   const days = calendarDays(anchor, view);
-  const options = { month: 'short', day: 'numeric', year: 'numeric' } as const;
-  return `${formatMealDate(days[0], options)} – ${formatMealDate(days[days.length - 1], options)}`;
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).formatRange(calendarDate(days[0]), calendarDate(days[days.length - 1]));
 }
 export function mealsOnDate(meals: PlannedMeal[], date: string): PlannedMeal[] {
   return meals

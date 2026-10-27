@@ -4,8 +4,9 @@
 
 ## Included
 
-- Week view (default) and month view, previous/next period, Today and a date jump. Weeks run Sunday–Saturday. Week view stacks into cards on phones; month view can be scrolled horizontally without squeezing meal names into tiny columns.
-- Breakfast, lunch, dinner and snacks. A day/meal slot can contain more than one entry, for example a main dish and a side.
+- Week view (default) and month view, previous/next period, Today and a date jump under the calendar icon. Weeks run Sunday–Saturday, in one row on desktop and stacked cards on phones; month view can be scrolled horizontally without squeezing meal names into tiny columns.
+- Breakfast (amber), lunch (green), dinner (blue) and snacks (purple), with matching labels in the calendar legend and meal selector. Colors adapt to light/dark themes; text labels remain visible. A day/meal slot can contain more than one entry, for example a main dish and a side.
+- Compact calendar controls and quiet empty days keep the meals in focus. Successful changes show a temporary toast; errors and live-update warnings remain visible.
 - Choose a saved recipe or a custom meal such as leftovers, takeout or dinner with friends. Names and notes remain editable. Change the date or meal type to reschedule.
 - Open a planned recipe's ingredients/instructions and reuse the existing shopping-list review. Planning never automatically creates shopping tasks. Shopping quantities are the recipe's saved purchase quantities, not automatically scaled servings.
 - Confirm before removing a meal. Removing a meal never deletes a recipe or shopping tasks. Deleting a recipe clears its link but preserves the planned meal title, date and notes.

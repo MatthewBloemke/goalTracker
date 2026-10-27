@@ -21,7 +21,6 @@ import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { SecondaryButton } from '@/components/ui/SecondaryButton';
 import {
   MEAL_TYPES,
-  mealLabels,
   validateMealDraft,
   type MealDraft,
   type PlannedMeal,
@@ -29,6 +28,7 @@ import {
 import { recipeToDraft, type SavedRecipe } from '../_lib/recipes';
 import { RecipeInstructions } from './RecipeInstructions';
 import { ShoppingListDialog } from './ShoppingListDialog';
+import { MealTypeLabel } from './MealTypeLabel';
 
 export function MealEditor({
   date,
@@ -142,7 +142,7 @@ export function MealEditor({
               >
                 {MEAL_TYPES.map((type) => (
                   <MenuItem key={type} value={type}>
-                    {mealLabels[type]}
+                    <MealTypeLabel type={type} />
                   </MenuItem>
                 ))}
               </AppTextField>
