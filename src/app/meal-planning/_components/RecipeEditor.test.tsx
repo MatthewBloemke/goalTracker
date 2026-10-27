@@ -112,3 +112,130 @@ test('save failures keep the editable draft and show the server error', async ()
   );
   expect(close).not.toHaveBeenCalled();
 });
+
+test('imported decimals display as fractions without changing unedited stored precision', async () => {
+  const save = jest.fn().mockResolvedValue(undefined);
+  render(
+    <RecipeEditor
+      title="Review imported recipe"
+      initial={{
+        ...recipe,
+        ingredients: [0.5, 1.25, 0.333].map((quantity) => ({
+          ...recipe.ingredients[0],
+          quantity,
+        })),
+      }}
+      onClose={jest.fn()}
+      onSave={save}
+    />,
+  );
+  const quantities = screen.getAllByRole('textbox', { name: 'Quantity' });
+  expect(quantities[0]).toHaveValue('½');
+  expect(quantities[1]).toHaveValue('1¼');
+  expect(quantities[2]).toHaveValue('⅓');
+  expect(save).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Save recipe' }));
+  await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+  expect(
+    save.mock.calls[0][0].ingredients.map(
+      (item: { quantity: number }) => item.quantity,
+    ),
+  ).toEqual([0.5, 1.25, 0.333]);
+  expect(save.mock.calls[0][0].ingredients[0]).not.toHaveProperty(
+    'quantityText',
+  );
+});
+
+test.each([
+  ['1/2', 0.5],
+  ['1 1/2', 1.5],
+  ['2¼', 2.25],
+  ['0.75', 0.75],
+  ['', null],
+])('quantity input %s saves numerically', async (input, value) => {
+  const save = jest.fn().mockResolvedValue(undefined);
+  render(
+    <RecipeEditor
+      title="Edit recipe"
+      initial={recipe}
+      onClose={jest.fn()}
+      onSave={save}
+    />,
+  );
+  fireEvent.change(screen.getByRole('textbox', { name: 'Quantity' }), {
+    target: { value: input },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Save recipe' }));
+  await waitFor(() =>
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ingredients: [expect.objectContaining({ quantity: value })],
+      }),
+    ),
+  );
+});
+
+test('partial/invalid fractions remain editable and cannot be saved until corrected', async () => {
+  const save = jest.fn().mockResolvedValue(undefined);
+  render(
+    <RecipeEditor
+      title="Edit recipe"
+      initial={recipe}
+      onClose={jest.fn()}
+      onSave={save}
+    />,
+  );
+  const input = screen.getByRole('textbox', { name: 'Quantity' });
+  fireEvent.change(input, { target: { value: '1/' } });
+  expect(input).toHaveValue('1/');
+  fireEvent.change(input, { target: { value: '1/0' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save recipe' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Ingredient 1: use a positive quantity',
+  );
+  expect(save).not.toHaveBeenCalled();
+  expect(input).toHaveValue('1/0');
+  fireEvent.change(input, { target: { value: '1/4' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save recipe' }));
+  await waitFor(() =>
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ingredients: [expect.objectContaining({ quantity: 0.25 })],
+      }),
+    ),
+  );
+});
+
+test('fraction drafts remain attached to the right ingredient when rows are added or removed', async () => {
+  const save = jest.fn().mockResolvedValue(undefined);
+  render(
+    <RecipeEditor
+      title="Edit recipe"
+      initial={recipe}
+      onClose={jest.fn()}
+      onSave={save}
+    />,
+  );
+  fireEvent.change(screen.getByRole('textbox', { name: 'Quantity' }), {
+    target: { value: '1/2' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Add ingredient' }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'Ingredient 2' }), {
+    target: { value: 'pepper' },
+  });
+  fireEvent.change(screen.getAllByRole('textbox', { name: 'Quantity' })[1], {
+    target: { value: '1/8' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Remove ingredient 1' }));
+  expect(screen.getByRole('textbox', { name: 'Quantity' })).toHaveValue('1/8');
+  fireEvent.click(screen.getByRole('button', { name: 'Save recipe' }));
+  await waitFor(() =>
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ingredients: [
+          expect.objectContaining({ name: 'pepper', quantity: 0.125 }),
+        ],
+      }),
+    ),
+  );
+});

@@ -3,9 +3,11 @@ import {
   emptyIngredient,
   emptyRecipe,
   filterRecipes,
+  formatRecipeQuantity,
   ingredientLabel,
   normalizeTags,
   parseRecipeFile,
+  parseRecipeQuantity,
   recipeToDraft,
   safeSourceUrl,
   serializeRecipe,
@@ -145,6 +147,112 @@ test('missing cooking quantities remain unknown; purchasing amount stays separat
     shoppingQuantity: 1,
   });
   expect(emptyRecipe().instructions).toEqual(['']);
+});
+
+test.each([
+  [null, ''],
+  [1, '1'],
+  [250, '250'],
+  [0.5, '½'],
+  [0.25, '¼'],
+  [0.75, '¾'],
+  [1.5, '1½'],
+  [2.25, '2¼'],
+  [1 / 3, '⅓'],
+  [0.333, '⅓'],
+  [0.3333, '⅓'],
+  [0.667, '⅔'],
+  [1.6667, '1⅔'],
+  [0.125, '⅛'],
+  [0.375, '⅜'],
+  [0.625, '⅝'],
+  [0.875, '⅞'],
+  [0.0625, '1/16'],
+  [1.1875, '1 3/16'],
+  [1 / 12, '1/12'],
+  [0.1, '⅒'],
+  [0.2, '⅕'],
+  [0.4, '⅖'],
+  [0.6, '⅗'],
+  [0.8, '⅘'],
+  [1 / 6, '⅙'],
+  [5 / 6, '⅚'],
+  [1 / 7, '⅐'],
+  [1 / 9, '⅑'],
+  [0.47, '0.47'],
+  [0.0001, '0.0001'],
+  [1.9999, '1.9999'],
+  [0, '0'],
+  [-1, '-1'],
+  [NaN, 'NaN'],
+  [Infinity, 'Infinity'],
+])(
+  'formats cooking quantity %s as %s without guessing unusual measures',
+  (value, label) => {
+    expect(formatRecipeQuantity(value as number | null)).toBe(label);
+  },
+);
+
+test.each([
+  ['', null],
+  ['  ', null],
+  ['1', 1],
+  ['250', 250],
+  ['1/2', 0.5],
+  [' 1 / 4 ', 0.25],
+  ['1 1/2', 1.5],
+  ['2 3/4', 2.75],
+  ['½', 0.5],
+  ['1½', 1.5],
+  ['1 ½', 1.5],
+  ['⅓', 1 / 3],
+  ['1⅔', 1 + 2 / 3],
+  ['3/2', 1.5],
+  ['1⁄8', 0.125],
+  ['2 1/16', 2.0625],
+  ['0.5', 0.5],
+  ['.25', 0.25],
+  ['1.', 1],
+  ['0.0001', 0.0001],
+])('parses entered quantity %s as a numeric value', (input, value) => {
+  expect(parseRecipeQuantity(input as string)).toBe(value);
+});
+
+test.each([
+  '1/',
+  '1/0',
+  '1 0/0',
+  '0',
+  '-1/2',
+  '1-2',
+  '1 1/2 extra',
+  '½¾',
+  'one',
+  '1e2',
+  'Infinity',
+  'NaN',
+  '100001',
+  '100000 1/2',
+  '1.2.3',
+  '1/2/3',
+])('rejects invalid quantity text %s', (input) => {
+  expect(() => parseRecipeQuantity(input)).toThrow('positive quantity');
+});
+
+test('fraction display does not change recipe storage, exported numbers or shopping amounts', () => {
+  const recipe = {
+    ...draft,
+    ingredients: [
+      { ...draft.ingredients[0], quantity: 1.5, shoppingQuantity: 2 },
+    ],
+  };
+  expect(ingredientLabel(recipe.ingredients[0])).toBe('1½ tsp paprika');
+  expect(ingredientLabel(recipe.ingredients[0], true)).toBe(
+    '2 container paprika',
+  );
+  const exported = serializeRecipe(recipe);
+  expect(parseRecipeFile(exported).ingredients[0].quantity).toBe(1.5);
+  expect(JSON.parse(exported).recipe.ingredients[0].quantity).toBe(1.5);
 });
 
 test.each([

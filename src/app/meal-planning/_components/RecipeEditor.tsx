@@ -24,7 +24,9 @@ import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { SecondaryButton } from '@/components/ui/SecondaryButton';
 import {
   emptyIngredient,
+  formatRecipeQuantity,
   normalizeTags,
+  parseRecipeQuantity,
   validateRecipe,
   type RecipeDraft,
 } from '../_lib/recipes';
@@ -44,13 +46,19 @@ export function RecipeEditor({
   onClose,
   onSave,
 }: Props) {
-  const [draft, setDraft] = useState(initial);
+  const [draft, setDraft] = useState(() => ({
+    ...initial,
+    ingredients: initial.ingredients.map((item) => ({
+      ...item,
+      quantityText: formatRecipeQuantity(item.quantity),
+    })),
+  }));
   const [tags, setTags] = useState(initial.tags.join(', '));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const updateIngredient = (
     index: number,
-    changes: Partial<RecipeDraft['ingredients'][number]>,
+    changes: Partial<(typeof draft.ingredients)[number]>,
   ) => {
     setDraft((value) => ({
       ...value,
@@ -89,6 +97,24 @@ export function RecipeEditor({
             await onSave(
               validateRecipe({
                 ...draft,
+                ingredients: draft.ingredients.map((item, index) => {
+                  try {
+                    return {
+                      ...item,
+                      // Merely opening/saving an existing recipe must not
+                      // replace its precise number with a display approximation.
+                      quantity:
+                        item.quantityText ===
+                        formatRecipeQuantity(item.quantity)
+                          ? item.quantity
+                          : parseRecipeQuantity(item.quantityText),
+                    };
+                  } catch {
+                    throw new Error(
+                      `Ingredient ${index + 1}: use a positive quantity like 1/2 or 1 1/2 (at most 100,000).`,
+                    );
+                  }
+                }),
                 tags: normalizeTags(tags.split(',')),
               }),
             );
@@ -149,8 +175,8 @@ export function RecipeEditor({
             />
             <h3 className="font-semibold">Ingredients</h3>
             <p className="-mt-3 text-sm text-(--text-secondary)">
-              Use cooking quantities here (0.5 for ½). Leave quantity blank for
-              “to taste” and add that in preparation.
+              Use fractions like 1/2 or 1 1/2. Leave quantity blank for “to
+              taste”.
             </p>
             {draft.ingredients.map((item, index) => (
               <div
@@ -184,14 +210,11 @@ export function RecipeEditor({
                 <div className="mt-3 grid gap-3 sm:grid-cols-[110px_130px_1fr]">
                   <AppTextField
                     label="Quantity"
-                    type="number"
-                    value={item.quantity ?? ''}
-                    slotProps={{ htmlInput: { min: 0.0001, step: 'any' } }}
+                    value={item.quantityText}
+                    placeholder="1/2"
                     onChange={(e) =>
                       updateIngredient(index, {
-                        quantity: e.target.value
-                          ? Number(e.target.value)
-                          : null,
+                        quantityText: e.target.value,
                       })
                     }
                   />
@@ -220,7 +243,10 @@ export function RecipeEditor({
               onClick={() =>
                 setDraft({
                   ...draft,
-                  ingredients: [...draft.ingredients, emptyIngredient()],
+                  ingredients: [
+                    ...draft.ingredients,
+                    { ...emptyIngredient(), quantityText: '' },
+                  ],
                 })
               }
             >
