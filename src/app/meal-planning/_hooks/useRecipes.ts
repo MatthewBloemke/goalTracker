@@ -9,7 +9,7 @@ import {
 } from '../_lib/recipes';
 import type { Json } from '@/types/database';
 
-export function useRecipes(familyId: string | null) {
+export function useRecipes(familyId: string | null | undefined) {
   const { supabase, user } = useSupabase();
   const [recipes, setRecipes] = useState<SavedRecipe[]>([]);
   const [loading, setLoading] = useState(true);
@@ -18,7 +18,7 @@ export function useRecipes(familyId: string | null) {
 
   const refresh = useCallback(async () => {
     const request = ++sequence.current;
-    if (!user) {
+    if (!user || !familyId) {
       setRecipes([]);
       setLoading(false);
       return;
@@ -27,9 +27,7 @@ export function useRecipes(familyId: string | null) {
       .from('recipes')
       .select('*, recipe_ingredients(*), recipe_steps(*)')
       .order('title');
-    const result = await (familyId
-      ? query.eq('family_id', familyId)
-      : query.is('family_id', null).eq('user_id', user.id));
+    const result = await query.eq('family_id', familyId);
     if (request !== sequence.current) return;
     setError(result.error?.message ?? null);
     if (!result.error) setRecipes(result.data ?? []);
@@ -49,8 +47,15 @@ export function useRecipes(familyId: string | null) {
     void Promise.resolve().then(() => {
       if (active) void refresh();
     });
+    if (!user || !familyId) {
+      return () => {
+        active = false;
+        ++requests.current;
+        clearTimeout(timer);
+      };
+    }
     const channel = supabase
-      .channel(`recipes:${familyId ?? user?.id}`)
+      .channel(`recipes:${familyId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'recipes' },
@@ -73,9 +78,10 @@ export function useRecipes(familyId: string | null) {
       clearTimeout(timer);
       void supabase.removeChannel(channel);
     };
-  }, [refresh, supabase, familyId, user?.id]);
+  }, [refresh, supabase, familyId, user]);
 
   const save = async (draft: RecipeDraft, existing?: SavedRecipe) => {
+    if (!familyId) throw new Error('Create or join a family first.');
     const validated = validateRecipe(draft);
     const { data, error } = await supabase.rpc('save_recipe', {
       recipe_data: validated as unknown as Json,
@@ -89,6 +95,7 @@ export function useRecipes(familyId: string | null) {
   };
 
   const remove = async (id: string) => {
+    if (!familyId) throw new Error('Create or join a family first.');
     const { data, error } = await supabase
       .from('recipes')
       .delete()

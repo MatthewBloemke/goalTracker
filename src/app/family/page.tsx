@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Button from '@mui/material/Button';
 import { useFamily } from '@/hooks/useFamily';
 import { useSupabase } from '@/components/providers/SupabaseProvider';
@@ -9,6 +10,7 @@ import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { SecondaryButton } from '@/components/ui/SecondaryButton';
 
 export default function FamilyPage() {
+  const router = useRouter();
   const { user } = useSupabase();
   const {
     family,
@@ -34,6 +36,7 @@ export default function FamilyPage() {
     setError(null);
     const result = await createFamily(familyName.trim());
     if (!result.success) setError(result.error ?? 'Failed to create family');
+    else router.replace('/');
     setSubmitting(false);
   };
 
@@ -43,6 +46,7 @@ export default function FamilyPage() {
     setError(null);
     const result = await joinFamily(inviteCode.trim());
     if (!result.success) setError(result.error ?? 'Failed to join family');
+    else router.replace('/');
     setSubmitting(false);
   };
 
@@ -64,7 +68,7 @@ export default function FamilyPage() {
 
   const handleLeave = async () => {
     const confirmed = window.confirm(
-      'Leave this family? Your personal budget will become active again, and the family budget will no longer be available to you.',
+      'Leave this family? You will return to family setup and cannot use the portal until you create or join another family.',
     );
     if (!confirmed) return;
 
@@ -98,14 +102,14 @@ export default function FamilyPage() {
             className="font-serif text-3xl"
             style={{ color: 'var(--text-primary)' }}
           >
-            Family Group
+            Set up your family
           </h1>
           <p
             className="text-sm mt-2"
             style={{ color: 'var(--text-secondary)' }}
           >
-            Create a group to share debt progress with your family, or join one
-            with an invite code.
+            Family Portal is shared by design. Create a family to get started,
+            or join an existing one with an invite code.
           </p>
         </div>
 
@@ -130,7 +134,7 @@ export default function FamilyPage() {
               }}
             >
               <span className="block text-2xl mb-1">🏠</span>
-              Create a Family Group
+              Create a Family
             </Button>
             <Button
               onClick={() => setView('join')}
@@ -175,7 +179,7 @@ export default function FamilyPage() {
               className="font-serif text-xl"
               style={{ color: 'var(--text-primary)' }}
             >
-              Create Family Group
+              Create Your Family
             </h2>
             <div className="flex flex-col gap-1.5">
               <label
@@ -197,7 +201,7 @@ export default function FamilyPage() {
                 disabled={submitting || !familyName.trim()}
                 sx={{ flex: 1 }}
               >
-                {submitting ? 'Creating...' : 'Create Group'}
+                {submitting ? 'Creating...' : 'Create Family'}
               </PrimaryButton>
               <SecondaryButton
                 onClick={() => {
@@ -480,7 +484,7 @@ export default function FamilyPage() {
           <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
             {isLastAdmin
               ? 'Promote another member to admin before leaving.'
-              : 'Your personal budget stays intact and will become active again.'}
+              : 'You will need to create or join another family before using the portal.'}
           </p>
         </div>
         <Button

@@ -12,10 +12,18 @@ let mockPathname = '/budget';
 let mockDesktop = false;
 let mockUser: { id: string } | null = { id: 'user' };
 const mockPush = jest.fn();
+const mockReplace = jest.fn();
 const mockSignOut = jest.fn().mockResolvedValue({ error: null });
+const mockRefetchFamily = jest.fn();
+let mockFamily: { id: string; name: string } | null = {
+  id: 'family',
+  name: 'Smiths',
+};
+let mockFamilyLoading = false;
+let mockFamilyError: string | null = null;
 jest.mock('next/navigation', () => ({
   usePathname: () => mockPathname,
-  useRouter: () => ({ push: mockPush }),
+  useRouter: () => ({ push: mockPush, replace: mockReplace }),
 }));
 jest.mock('@mui/material/useMediaQuery', () => ({
   __esModule: true,
@@ -24,7 +32,16 @@ jest.mock('@mui/material/useMediaQuery', () => ({
 jest.mock('@/components/providers/SupabaseProvider', () => ({
   useSupabase: () => ({
     user: mockUser,
+    loading: false,
     supabase: { auth: { signOut: mockSignOut } },
+  }),
+}));
+jest.mock('@/hooks/useFamily', () => ({
+  useFamily: () => ({
+    family: mockFamily,
+    loading: mockFamilyLoading,
+    error: mockFamilyError,
+    refetch: mockRefetchFamily,
   }),
 }));
 jest.mock('next/link', () => ({
@@ -44,6 +61,9 @@ beforeEach(() => {
   mockPathname = '/budget';
   mockDesktop = false;
   mockUser = { id: 'user' };
+  mockFamily = { id: 'family', name: 'Smiths' };
+  mockFamilyLoading = false;
+  mockFamilyError = null;
 });
 
 const shell = (
@@ -179,3 +199,40 @@ test.each(['signed out', 'login page'])(
     ).toBeInTheDocument();
   },
 );
+
+test('users without a family are sent to required onboarding before page content renders', async () => {
+  mockFamily = null;
+  render(shell);
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/family'));
+  expect(screen.getByRole('status')).toHaveTextContent(
+    'Opening family setup...',
+  );
+  expect(
+    screen.queryByRole('heading', { name: 'Page content' }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('button', { name: 'Open navigation' }),
+  ).not.toBeInTheDocument();
+});
+
+test('family onboarding keeps create/join content available with only a sign-out action', () => {
+  mockPathname = '/family';
+  mockFamily = null;
+  render(shell);
+  expect(
+    screen.getByRole('heading', { name: 'Page content' }),
+  ).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Sign out' })).toBeVisible();
+  expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+  expect(mockReplace).not.toHaveBeenCalled();
+});
+
+test('a membership lookup failure is retryable and is not treated as a new user', () => {
+  mockFamily = null;
+  mockFamilyError = 'Database unavailable';
+  render(shell);
+  expect(screen.getByRole('alert')).toHaveTextContent('Database unavailable');
+  fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+  expect(mockRefetchFamily).toHaveBeenCalledWith(true);
+  expect(mockReplace).not.toHaveBeenCalled();
+});

@@ -76,6 +76,7 @@ export default function TaskListPage({
   );
 
   if (familyLoading || loading) return <TaskListLoading />;
+  if (!family) return null;
 
   if (!list) {
     return (
@@ -156,9 +157,7 @@ export default function TaskListPage({
           </div>
           <p className="mt-1 text-sm text-(--text-secondary)">
             {tasks.length === 0
-              ? family
-                ? `${family.name}'s shared list`
-                : 'Your personal list'
+              ? `${family.name}'s shared list`
               : `${completedCount} of ${tasks.length} complete · top tasks are highest priority`}
           </p>
         </div>

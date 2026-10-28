@@ -22,7 +22,7 @@ export function useTaskLists(familyId?: string | null) {
   const fetchLists = useCallback(
     async (showLoading = false) => {
       const requestId = ++requestIdRef.current;
-      if (!user) {
+      if (!user || !familyId) {
         setLists([]);
         setLoading(false);
         return;
@@ -35,9 +35,7 @@ export function useTaskLists(familyId?: string | null) {
         .from('task_lists')
         .select('*')
         .order('created_at', { ascending: false });
-      const listResult = await (familyId
-        ? query.eq('family_id', familyId)
-        : query.is('family_id', null).eq('user_id', user.id));
+      const listResult = await query.eq('family_id', familyId);
 
       if (requestId !== requestIdRef.current) return;
       if (listResult.error) {
@@ -78,7 +76,7 @@ export function useTaskLists(familyId?: string | null) {
   }, [fetchLists]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !familyId) return;
     let refreshTimer: number | undefined;
     const refresh = () => {
       window.clearTimeout(refreshTimer);
@@ -86,7 +84,7 @@ export function useTaskLists(familyId?: string | null) {
     };
 
     const channel = supabase
-      .channel(`task-lists:${familyId ?? user.id}`)
+      .channel(`task-lists:${familyId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'task_lists' },
@@ -107,14 +105,14 @@ export function useTaskLists(familyId?: string | null) {
 
   const createList = useCallback(
     async (name: string): Promise<TaskList | null> => {
-      if (!user || !name.trim()) return null;
+      if (!user || !familyId || !name.trim()) return null;
       setMutating(true);
       setError(null);
       const { data, error: createError } = await supabase
         .from('task_lists')
         .insert({
           user_id: user.id,
-          family_id: familyId ?? null,
+          family_id: familyId,
           name: name.trim(),
         })
         .select('*')

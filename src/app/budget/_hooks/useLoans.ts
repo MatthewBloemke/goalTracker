@@ -28,7 +28,7 @@ export function useLoans({
     async (showLoading = false) => {
       const requestId = ++requestIdRef.current;
 
-      if (!user) {
+      if (!user || !familyId) {
         setLoans([]);
         setLoading(false);
         return;
@@ -42,9 +42,10 @@ export function useLoans({
         .select('*')
         .order('snowball_order', { ascending: true, nullsFirst: false });
 
-      const { data, error: fetchError } = await (familyId
-        ? query.eq('family_id', familyId)
-        : query.is('family_id', null).eq('user_id', user.id));
+      const { data, error: fetchError } = await query.eq(
+        'family_id',
+        familyId,
+      );
 
       if (requestId !== requestIdRef.current) return;
 
@@ -67,14 +68,12 @@ export function useLoans({
 
   // Realtime subscription — silent refetch, no loading spinner
   useEffect(() => {
-    if (!user) return;
+    if (!user || !familyId) return;
 
-    const filter = familyId
-      ? `family_id=eq.${familyId}`
-      : `user_id=eq.${user.id}`;
+    const filter = `family_id=eq.${familyId}`;
 
     const channel = supabase
-      .channel(`loans-realtime-${familyId ?? user.id}`)
+      .channel(`loans-realtime-${familyId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'loans', filter },

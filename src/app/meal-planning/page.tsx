@@ -21,11 +21,12 @@ export default function MealPlanningPage() {
       </Alert>
     );
   if (!user) return <Alert severity="info">Sign in to plan your meals.</Alert>;
+  if (!family) return null;
   return (
     <MealPlanner
-      key={`${user.id}:${family?.id ?? 'personal'}`}
-      familyId={family?.id ?? null}
-      familyName={family?.name}
+      key={`${user.id}:${family.id}`}
+      familyId={family.id}
+      familyName={family.name}
     />
   );
 }

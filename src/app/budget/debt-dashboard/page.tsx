@@ -6,7 +6,6 @@ import dayjs from 'dayjs'
 import { Box, Button, Card, InputAdornment, Stack, Typography } from '@mui/material'
 import { useFamily } from '@/hooks/useFamily'
 import { useLoans } from '@/app/budget/_hooks/useLoans'
-import { useSupabase } from '@/components/providers/SupabaseProvider'
 import { Thermometer } from '@/app/budget/_components/debt/Thermometer'
 import { TotalProgressBar } from '@/app/budget/_components/debt/TotalProgressBar'
 import { PaymentButtons } from '@/app/budget/_components/debt/PaymentButton'
@@ -14,13 +13,12 @@ import { AppTextField } from '@/components/ui/AppTextField'
 import { formatCurrency, formatMonthsRemaining } from '@/app/budget/_lib/snowball'
 
 export default function DebtDashboardPage() {
-  const { user } = useSupabase()
   const { family, settings, loading: familyLoading } = useFamily()
   const [currentMonthExtra, setCurrentMonthExtra] = useState('')
   const currentMonthKey = useMemo(() => {
-    const owner = family?.id ?? user?.id ?? 'personal'
+    const owner = family?.id ?? 'family-required'
     return `debt-snowball:current-month-extra:${owner}:${dayjs().format('YYYY-MM')}`
-  }, [family?.id, user?.id])
+  }, [family?.id])
   const parsedCurrentMonthExtra = Number(currentMonthExtra) > 0 ? Number(currentMonthExtra) : 0
 
   const { summary, loading: loansLoading } = useLoans({
@@ -56,6 +54,8 @@ export default function DebtDashboardPage() {
     )
   }
 
+  if (!family) return null
+
   if (!summary || summary.ordered_loans.length === 0) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 text-center">
@@ -83,7 +83,7 @@ export default function DebtDashboardPage() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent-green)]">Debt payoff</p>
           <h1 className="mt-1 font-serif text-3xl text-[var(--text-primary)]">
-            {family ? `${family.name} Debt Dashboard` : 'My Debt Dashboard'}
+            {family.name} Debt Dashboard
           </h1>
           <p className="mt-1 text-sm text-[var(--text-secondary)]">
             {settings?.strategy === 'avalanche' ? 'Avalanche' : 'Snowball'} strategy

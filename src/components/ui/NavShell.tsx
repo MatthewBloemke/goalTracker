@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Button from '@mui/material/Button';
 import {
@@ -20,18 +20,35 @@ import MenuIcon from '@mui/icons-material/MenuRounded';
 import CloseIcon from '@mui/icons-material/CloseRounded';
 import LogoutIcon from '@mui/icons-material/LogoutRounded';
 import { useSupabase } from '@/components/providers/SupabaseProvider';
+import { useFamily } from '@/hooks/useFamily';
 import { portalModules } from '@/lib/portal-modules';
 
 const hideNavOn = ['/login'];
 
 export function NavShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { supabase, user } = useSupabase();
+  const { supabase, user, loading: authLoading } = useSupabase();
+  const {
+    family,
+    loading: familyLoading,
+    error: familyError,
+    refetch: refetchFamily,
+  } = useFamily();
   const router = useRouter();
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
 
   const showNav = user && !hideNavOn.includes(pathname);
+  const needsFamily =
+    !!user &&
+    !authLoading &&
+    !familyLoading &&
+    !family &&
+    !familyError;
+
+  useEffect(() => {
+    if (needsFamily && pathname !== '/family') router.replace('/family');
+  }, [needsFamily, pathname, router]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -40,6 +57,49 @@ export function NavShell({ children }: { children: React.ReactNode }) {
 
   if (!showNav) {
     return <>{children}</>;
+  }
+
+  if (familyLoading) {
+    return (
+      <RequiredFamilyShell onSignOut={handleSignOut}>
+        <FamilyGateLoading label="Loading your family..." />
+      </RequiredFamilyShell>
+    );
+  }
+
+  if (familyError) {
+    return (
+      <RequiredFamilyShell onSignOut={handleSignOut}>
+        <div
+          role="alert"
+          className="mx-auto flex max-w-md flex-col items-center gap-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 text-center"
+        >
+          <div>
+            <h1 className="text-xl font-semibold text-[var(--text-primary)]">
+              We couldn’t load your family
+            </h1>
+            <p className="mt-2 text-sm text-[var(--text-secondary)]">
+              {familyError}
+            </p>
+          </div>
+          <Button variant="contained" onClick={() => void refetchFamily(true)}>
+            Try again
+          </Button>
+        </div>
+      </RequiredFamilyShell>
+    );
+  }
+
+  if (!family) {
+    return (
+      <RequiredFamilyShell onSignOut={handleSignOut}>
+        {pathname === '/family' ? (
+          children
+        ) : (
+          <FamilyGateLoading label="Opening family setup..." />
+        )}
+      </RequiredFamilyShell>
+    );
   }
 
   return (
@@ -133,6 +193,59 @@ export function NavShell({ children }: { children: React.ReactNode }) {
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-5 sm:py-8">
         {children}
       </main>
+    </div>
+  );
+}
+
+function RequiredFamilyShell({
+  children,
+  onSignOut,
+}: {
+  children: React.ReactNode;
+  onSignOut: () => Promise<void>;
+}) {
+  return (
+    <div className="flex min-h-screen flex-col bg-[var(--background)]">
+      <header className="glass border-b border-[var(--border)]">
+        <Box className="mx-auto flex min-h-16 w-full max-w-6xl items-center gap-4 px-4">
+          <Link
+            href="/family"
+            className="mr-auto flex min-h-11 items-center gap-2.5"
+            aria-label="Family Portal setup"
+          >
+            <PortalMark />
+            <span className="font-serif text-lg text-[var(--text-primary)]">
+              Family Portal
+            </span>
+          </Link>
+          <Button
+            onClick={() => void onSignOut()}
+            variant="outlined"
+            color="inherit"
+            size="small"
+          >
+            Sign out
+          </Button>
+        </Box>
+      </header>
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
+        {children}
+      </main>
+    </div>
+  );
+}
+
+function FamilyGateLoading({ label }: { label: string }) {
+  return (
+    <div
+      role="status"
+      className="flex min-h-[60vh] flex-col items-center justify-center gap-3 text-sm text-[var(--text-secondary)]"
+    >
+      <span
+        className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--accent-green)] border-t-transparent"
+        aria-hidden="true"
+      />
+      {label}
     </div>
   );
 }

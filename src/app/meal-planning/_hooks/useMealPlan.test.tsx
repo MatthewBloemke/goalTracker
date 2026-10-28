@@ -43,7 +43,7 @@ const meal: PlannedMeal = {
   ...draft,
   id: 'meal',
   user_id: 'user',
-  family_id: null,
+  family_id: 'family',
   created_at: '2026-10-20',
   updated_at: 'revision',
 };
@@ -77,26 +77,19 @@ test('queries only the active family and requested visible dates', async () => {
   expect(queries[0].lte).toHaveBeenCalledWith('meal_date', '2026-10-31');
   expect(result.current.meals).toEqual([meal]);
 });
-test('personal queries exclude family entries; saving stamps the authenticated owner and scope', async () => {
+test('a missing family never queries or saves personal meal data', async () => {
   const { result } = renderHook(() =>
     useMealPlan(null, '2026-10-25', '2026-10-31'),
   );
   await waitFor(() => expect(result.current.loading).toBe(false));
-  expect(queries[0].is).toHaveBeenCalledWith('family_id', null);
-  expect(queries[0].eq).toHaveBeenCalledWith('user_id', 'user');
-  responses.push({ data: [{ id: 'new' }], error: null });
-  await act(async () => {
-    await result.current.save(draft);
-  });
-  expect(queries[1].insert).toHaveBeenCalledWith({
-    ...draft,
-    user_id: 'user',
-    family_id: null,
-  });
+  expect(result.current.error).toContain('family');
+  expect(queries).toHaveLength(0);
+  await expect(result.current.save(draft)).rejects.toThrow('family');
+  expect(queries).toHaveLength(0);
 });
 test('edits and deletions include the revision and reject stale writes', async () => {
   const { result } = renderHook(() =>
-    useMealPlan(null, '2026-10-25', '2026-10-31'),
+    useMealPlan('family', '2026-10-25', '2026-10-31'),
   );
   await waitFor(() => expect(result.current.loading).toBe(false));
   responses.push({ data: [], error: null });
@@ -114,7 +107,7 @@ test('edits and deletions include the revision and reject stale writes', async (
 test('database errors remain visible and invalid inputs never reach insert', async () => {
   responses.push({ data: null, error: { message: 'Offline' } });
   const { result } = renderHook(() =>
-    useMealPlan(null, '2026-10-25', '2026-10-31'),
+    useMealPlan('family', '2026-10-25', '2026-10-31'),
   );
   await waitFor(() => expect(result.current.error).toBe('Offline'));
   await expect(result.current.save({ ...draft, title: '' })).rejects.toThrow(
@@ -132,7 +125,7 @@ test('a late response for a previous date range cannot replace the new range', a
     }),
   );
   const { result, rerender } = renderHook(
-    ({ start }) => useMealPlan(null, start, start),
+    ({ start }) => useMealPlan('family', start, start),
     { initialProps: { start: '2026-10-25' } },
   );
   await waitFor(() => expect(queries).toHaveLength(1));

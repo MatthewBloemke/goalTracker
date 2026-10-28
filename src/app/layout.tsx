@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { DM_Sans } from 'next/font/google'
 import { SupabaseProvider } from '@/components/providers/SupabaseProvider'
+import { FamilyProvider } from '@/components/providers/FamilyProvider'
 import { MuiProvider } from '@/components/providers/MuiProvider'
 import { NavShell } from '@/components/ui/NavShell'
 import './globals.css'
@@ -21,11 +22,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={dmSans.variable}>
       <body>
         <SupabaseProvider>
-          <MuiProvider>
-            <NavShell>
-              {children}
-            </NavShell>
-          </MuiProvider>
+          <FamilyProvider>
+            <MuiProvider>
+              <NavShell>
+                {children}
+              </NavShell>
+            </MuiProvider>
+          </FamilyProvider>
         </SupabaseProvider>
       </body>
     </html>

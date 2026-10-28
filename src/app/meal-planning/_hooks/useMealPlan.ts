@@ -27,6 +27,7 @@ export function useMealPlan(
     const request = ++sequence.current;
     try {
       if (!user) throw new Error('Sign in to view your meal plan.');
+      if (!familyId) throw new Error('Create or join a family first.');
       const query = supabase
         .from('meal_plan_entries')
         .select('*')
@@ -34,9 +35,7 @@ export function useMealPlan(
         .lte('meal_date', end)
         .order('meal_date')
         .order('created_at');
-      const result = await (familyId
-        ? query.eq('family_id', familyId)
-        : query.is('family_id', null).eq('user_id', user.id));
+      const result = await query.eq('family_id', familyId);
       if (result.error) throw new Error(result.error.message);
       if (request === sequence.current)
         setState({ key, meals: result.data ?? [], error: null });
@@ -66,6 +65,13 @@ export function useMealPlan(
     void Promise.resolve().then(() => {
       if (active) void refresh();
     });
+    if (!user || !familyId) {
+      return () => {
+        active = false;
+        ++requests.current;
+        clearTimeout(timer);
+      };
+    }
     const channel = supabase
       .channel(`meal-plan:${key}`)
       .on(
@@ -92,10 +98,11 @@ export function useMealPlan(
       window.removeEventListener('focus', reload);
       void supabase.removeChannel(channel);
     };
-  }, [key, refresh, supabase]);
+  }, [familyId, key, refresh, supabase, user]);
 
   const save = async (draft: MealDraft, existing?: PlannedMeal) => {
     if (!user) throw new Error('Sign in to plan meals.');
+    if (!familyId) throw new Error('Create or join a family first.');
     const values = validateMealDraft(draft);
     const result = existing
       ? await supabase
@@ -116,6 +123,7 @@ export function useMealPlan(
     await refresh();
   };
   const remove = async (meal: PlannedMeal) => {
+    if (!familyId) throw new Error('Create or join a family first.');
     const result = await supabase
       .from('meal_plan_entries')
       .delete()

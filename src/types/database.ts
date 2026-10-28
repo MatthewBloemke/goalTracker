@@ -677,6 +677,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_family_for_current_user: {
+        Args: { family_name: string }
+        Returns: string
+      }
+      join_family_with_invite: {
+        Args: { invite_code_input: string }
+        Returns: string
+      }
       save_recipe: {
         Args: { recipe_data: Json; target_id?: string | null; target_family_id?: string | null; expected_updated_at?: string | null }
         Returns: string

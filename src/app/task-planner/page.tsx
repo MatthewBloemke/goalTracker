@@ -40,6 +40,7 @@ export default function TaskPlannerPage() {
   const [editingList, setEditingList] = useState<TaskListSummary | null>(null);
 
   if (familyLoading || loading) return <TaskPlannerLoading />;
+  if (!family) return null;
 
   const closeDialog = () => {
     setDialogOpen(false);
@@ -57,9 +58,7 @@ export default function TaskPlannerPage() {
             <LiveIndicator connected={realtimeConnected} />
           </div>
           <p className="mt-1 text-sm text-(--text-secondary)">
-            {family
-              ? `${family.name}'s shared project lists`
-              : 'Your personal project lists'}
+            {family.name}&apos;s shared project lists
           </p>
         </div>
         <PrimaryButton

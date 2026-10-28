@@ -38,7 +38,7 @@ function createSupabaseMock() {
 }
 
 describe('useLoans budget scope', () => {
-  test('loads only personal loans when there is no active family', async () => {
+  test('does not query loans until a family is active', async () => {
     const { query, supabase } = createSupabaseMock();
     mockUseSupabase.mockReturnValue({
       supabase,
@@ -47,10 +47,8 @@ describe('useLoans budget scope', () => {
 
     renderHook(() => useLoans());
 
-    await waitFor(() => {
-      expect(query.is).toHaveBeenCalledWith('family_id', null);
-      expect(query.eq).toHaveBeenCalledWith('user_id', 'user-1');
-    });
+    await waitFor(() => expect(query.select).not.toHaveBeenCalled());
+    expect(supabase.from).not.toHaveBeenCalled();
   });
 
   test('loads the shared budget loans when a family is active', async () => {

@@ -40,6 +40,10 @@ export function useReceiptScanner({
       setError('Create at least one budget category before scanning a receipt.');
       return;
     }
+    if (!familyId) {
+      setError('Create or join a family before scanning a receipt.');
+      return;
+    }
 
     setAnalyzing(true);
     try {
@@ -48,7 +52,7 @@ export function useReceiptScanner({
         'analyze-receipt',
         {
           body: {
-            familyId: familyId ?? null,
+            familyId,
             categoryIds: categories.map(({ id }) => id),
             image,
           },

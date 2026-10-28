@@ -51,6 +51,18 @@ Deno.serve(async (request) => {
     } = await supabase.auth.getUser();
     if (authError || !user)
       return json({ error: 'Your session expired. Sign in again.' }, 401);
+    const { data: membership, error: membershipError } = await supabase
+      .from('family_members')
+      .select('family_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (membershipError)
+      return json({ error: 'Unable to verify your family.' }, 503);
+    if (!membership)
+      return json(
+        { error: 'Create or join a family before importing recipes.' },
+        403,
+      );
     const { data: grant, error: grantError } = await supabase
       .from('feature_access_grants')
       .select('user_id')

@@ -270,6 +270,7 @@ export function LoanCard({
         >
           <LoanForm
             loan={loan}
+            familyId={loan.family_id as string}
             onSuccess={() => {
               setEditing(false);
               setExpanded(false);

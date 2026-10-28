@@ -54,11 +54,12 @@ export default function RecipesPage() {
     );
   if (!user)
     return <Alert severity="info">Sign in to view your recipes.</Alert>;
+  if (!family) return null;
   return (
     <RecipeLibrary
-      key={`${user.id}:${family?.id ?? 'personal'}`}
-      familyId={family?.id ?? null}
-      familyName={family?.name}
+      key={`${user.id}:${family.id}`}
+      familyId={family.id}
+      familyName={family.name}
     />
   );
 }
@@ -73,8 +74,8 @@ function RecipeLibrary({
   familyId,
   familyName,
 }: {
-  familyId: string | null;
-  familyName?: string;
+  familyId: string;
+  familyName: string;
 }) {
   const { recipes, loading, error, save, remove } = useRecipes(familyId);
   const [search, setSearch] = useState('');
@@ -141,10 +142,7 @@ function RecipeLibrary({
             Recipe collection
           </h1>
           <p className="mt-2 text-sm text-(--text-secondary)">
-            {familyName
-              ? `${familyName}’s shared recipes`
-              : 'Your personal recipes'}{' '}
-            · Cook, collect and share.
+            {familyName}’s shared recipes · Cook, collect and share.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

@@ -23,7 +23,7 @@ export function useTaskList(listId: string, familyId?: string | null) {
   const fetchList = useCallback(
     async (showLoading = false) => {
       const requestId = ++requestIdRef.current;
-      if (!user) {
+      if (!user || !familyId) {
         setList(null);
         setTasks([]);
         setLoading(false);
@@ -34,10 +34,7 @@ export function useTaskList(listId: string, familyId?: string | null) {
       setError(null);
 
       const query = supabase.from('task_lists').select('*').eq('id', listId);
-      const listResult = await (familyId
-        ? query.eq('family_id', familyId)
-        : query.is('family_id', null).eq('user_id', user.id)
-      ).maybeSingle();
+      const listResult = await query.eq('family_id', familyId).maybeSingle();
 
       if (requestId !== requestIdRef.current) return;
       if (listResult.error) {
@@ -82,7 +79,7 @@ export function useTaskList(listId: string, familyId?: string | null) {
   }, [fetchList]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !familyId) return;
     let refreshTimer: number | undefined;
     const refresh = () => {
       window.clearTimeout(refreshTimer);
@@ -117,7 +114,7 @@ export function useTaskList(listId: string, familyId?: string | null) {
       window.clearTimeout(refreshTimer);
       void supabase.removeChannel(channel);
     };
-  }, [fetchList, listId, supabase, user]);
+  }, [familyId, fetchList, listId, supabase, user]);
 
   const runMutation = useCallback(
     async (operation: () => Promise<void>) => {

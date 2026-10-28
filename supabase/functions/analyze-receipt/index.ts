@@ -46,6 +46,22 @@ Deno.serve(async (request: Request) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) return json({ error: 'Authentication is required.' }, 401)
 
+    const { data: membership, error: membershipError } = await supabase
+      .from('family_members')
+      .select('family_id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    if (membershipError) {
+      console.error('Receipt family membership check failed', {
+        userId: user.id,
+        code: membershipError.code,
+      })
+      throw new PublicError('Unable to verify your family. Please try again.', 503)
+    }
+    if (!membership) {
+      throw new PublicError('Create or join a family before scanning receipts.', 403)
+    }
+
     const { data: accessGrant, error: grantError } = await supabase
       .from('feature_access_grants')
       .select('user_id')
@@ -70,18 +86,18 @@ Deno.serve(async (request: Request) => {
 
     const body = await readRequestBody(request)
     const familyId = readFamilyId(body.familyId)
+    if (familyId !== membership.family_id) {
+      throw new PublicError('This receipt does not belong to your active family.', 403)
+    }
     const requestedCategoryIds = readCategoryIds(body.categoryIds)
     const image = readImage(body.image)
 
-    let groupQuery = supabase
+    const groupQuery = supabase
       .from('budget_groups')
       .select('id, name, user_id, family_id')
       .is('archived_at', null)
-    groupQuery = familyId
-      ? groupQuery.eq('family_id', familyId)
-      : groupQuery.is('family_id', null).eq('user_id', user.id)
 
-    const { data: groups, error: groupError } = await groupQuery
+    const { data: groups, error: groupError } = await groupQuery.eq('family_id', familyId)
     if (groupError) throw new PublicError('Unable to verify this budget scope.', 403)
 
     const groupIds = (groups ?? []).map(({ id }) => id)
@@ -248,9 +264,8 @@ function readRequestBody(request: Request): Promise<Record<string, unknown>> {
 }
 
 function readFamilyId(value: unknown) {
-  if (value === null || value === undefined) return null
   if (typeof value !== 'string' || !UUID_PATTERN.test(value)) {
-    throw new PublicError('Invalid family scope.', 400)
+    throw new PublicError('A valid family is required.', 400)
   }
   return value
 }

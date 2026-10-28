@@ -79,6 +79,7 @@ export default function MonthlyBudgetPage() {
   });
 
   if (familyLoading || loading) return <BudgetLoading />;
+  if (!family) return null;
   const allCollapsed =
     groups.length > 0 && groups.every(({ id }) => collapsedGroups.has(id));
 
@@ -91,7 +92,7 @@ export default function MonthlyBudgetPage() {
               Monthly Plan
             </h1>
             <span className="rounded-full bg-(--surface-2) px-3 py-1 text-xs text-(--text-secondary)">
-              {family?.name ?? 'Personal'}
+              {family.name}
             </span>
             <span
               className="flex items-center gap-1.5 text-xs text-(--text-secondary)"

@@ -11,7 +11,7 @@ import type { Loan, LoanFormValues, InsertLoan, UpdateLoan } from '@/types'
 
 interface LoanFormProps {
   loan?: Loan               // if provided, we're editing
-  familyId?: string | null
+  familyId: string
   onSuccess: () => void
   onCancel: () => void
 }
@@ -37,9 +37,9 @@ export function LoanForm({ loan, familyId, onSuccess, onCancel }: LoanFormProps)
           current_balance: String(loan.current_balance),
           interest_rate: String((loan.interest_rate * 100).toFixed(4)),
           min_payment: String(loan.min_payment),
-          family_id: loan.family_id,
+          family_id: loan.family_id ?? familyId,
         }
-      : { ...emptyForm, family_id: familyId ?? null }
+      : { ...emptyForm, family_id: familyId }
   )
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState<Partial<LoanFormValues>>({})

@@ -47,8 +47,8 @@ export function MealPlanner({
   familyId,
   familyName,
 }: {
-  familyId: string | null;
-  familyName?: string;
+  familyId: string;
+  familyName: string;
 }) {
   const [anchor, setAnchor] = useState(localToday);
   const [view, setView] = useState<CalendarView>('week');
@@ -74,13 +74,9 @@ export function MealPlanner({
           <h1 className="font-serif text-3xl">Meal plan</h1>
           <span
             className="rounded-full bg-(--surface-2) px-3 py-1 text-xs text-(--text-secondary)"
-            aria-label={
-              familyId
-                ? `Shared with ${familyName || 'your family'}`
-                : 'Personal meal plan'
-            }
+            aria-label={`Shared with ${familyName}`}
           >
-            {familyId ? familyName || 'Family' : 'Personal'}
+            {familyName}
           </span>
         </div>
         <PrimaryButton

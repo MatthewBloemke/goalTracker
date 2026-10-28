@@ -9,7 +9,7 @@ import { LoanForm } from '@/app/budget/_components/debt/LoanForm'
 import { formatCurrency } from '@/app/budget/_lib/snowball'
 
 export default function LoansPage() {
-  const { family, settings } = useFamily()
+  const { family, settings, loading: familyLoading } = useFamily()
   const { summary, loading, refetch } = useLoans({
     familyId: family?.id,
     strategy: settings?.strategy ?? 'snowball',
@@ -18,7 +18,7 @@ export default function LoansPage() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [showPaidOff, setShowPaidOff] = useState(false)
 
-  if (loading) {
+  if (familyLoading || loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="w-8 h-8 rounded-full border-2 animate-spin"
@@ -26,6 +26,8 @@ export default function LoansPage() {
       </div>
     )
   }
+
+  if (!family) return null
 
   const activeLoans = summary?.ordered_loans.filter(l => l.is_active && l.current_balance > 0) ?? []
   const paidOffLoans = summary?.ordered_loans.filter(l => !l.is_active || l.current_balance === 0) ?? []
@@ -60,7 +62,7 @@ export default function LoansPage() {
         <div className="rounded-2xl p-6 glass">
           <h2 className="font-serif text-xl mb-5" style={{ color: 'var(--text-primary)' }}>New Loan</h2>
           <LoanForm
-            familyId={family?.id}
+            familyId={family.id}
             onSuccess={() => { setShowAddForm(false); refetch() }}
             onCancel={() => setShowAddForm(false)}
           />

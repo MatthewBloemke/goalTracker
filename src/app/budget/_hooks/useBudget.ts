@@ -56,7 +56,14 @@ export function useBudget({ familyId, month }: UseBudgetOptions) {
 
   const fetchBudget = useCallback(async (showLoading = false) => {
     const currentRequest = ++requestId.current
-    if (!user) {
+    if (!user || !familyId) {
+      setGroups([])
+      setCategories([])
+      setBudget(null)
+      setPreviousBudget(null)
+      setAllocations([])
+      setTransactions([])
+      setSplits([])
       setLoading(false)
       return
     }
@@ -88,18 +95,10 @@ export function useBudget({ familyId, month }: UseBudgetOptions) {
       .order('occurred_on', { ascending: false })
       .order('created_at', { ascending: false })
 
-    const scopedGroups = familyId
-      ? groupQuery.eq('family_id', familyId)
-      : groupQuery.is('family_id', null).eq('user_id', user.id)
-    const scopedBudget = familyId
-      ? budgetQuery.eq('family_id', familyId)
-      : budgetQuery.is('family_id', null).eq('user_id', user.id)
-    const scopedPrevious = familyId
-      ? previousQuery.eq('family_id', familyId)
-      : previousQuery.is('family_id', null).eq('user_id', user.id)
-    const scopedTransactions = familyId
-      ? transactionQuery.eq('family_id', familyId)
-      : transactionQuery.is('family_id', null).eq('user_id', user.id)
+    const scopedGroups = groupQuery.eq('family_id', familyId)
+    const scopedBudget = budgetQuery.eq('family_id', familyId)
+    const scopedPrevious = previousQuery.eq('family_id', familyId)
+    const scopedTransactions = transactionQuery.eq('family_id', familyId)
 
     const [groupResult, categoryResult, budgetResult, previousResult, transactionResult] = await Promise.all([
       scopedGroups,
@@ -160,14 +159,14 @@ export function useBudget({ familyId, month }: UseBudgetOptions) {
   }, [fetchBudget])
 
   useEffect(() => {
-    if (!user) return
+    if (!user || !familyId) return
     let refreshTimer: number | undefined
     const handleChange = () => {
       window.clearTimeout(refreshTimer)
       refreshTimer = window.setTimeout(() => void fetchBudget(), 120)
     }
 
-    let channel = supabase.channel(`budget:${familyId ?? user.id}:${month}`)
+    let channel = supabase.channel(`budget:${familyId}:${month}`)
     for (const table of realtimeTables) {
       channel = channel.on(
         'postgres_changes',
@@ -200,9 +199,10 @@ export function useBudget({ familyId, month }: UseBudgetOptions) {
 
   const createBudget = useCallback((income = 0) => runMutation(async () => {
     if (!user) throw new Error('Not authenticated')
+    if (!familyId) throw new Error('Create or join a family first')
     const { error: insertError } = await supabase.from('monthly_budgets').insert({
       user_id: user.id,
-      family_id: familyId ?? null,
+      family_id: familyId,
       month,
       income,
       created_by: user.id,
@@ -230,9 +230,10 @@ export function useBudget({ familyId, month }: UseBudgetOptions) {
 
   const createGroup = useCallback((name: string) => runMutation(async () => {
     if (!user || !name.trim()) throw new Error('Group name is required')
+    if (!familyId) throw new Error('Create or join a family first')
     const { error: insertError } = await supabase.from('budget_groups').insert({
       user_id: user.id,
-      family_id: familyId ?? null,
+      family_id: familyId,
       name: name.trim(),
       sort_order: groups.length,
     })
@@ -279,6 +280,7 @@ export function useBudget({ familyId, month }: UseBudgetOptions) {
 
   const createTransaction = useCallback((input: CreateTransactionInput) => runMutation(async () => {
     if (!user) throw new Error('Not authenticated')
+    if (!familyId) throw new Error('Create or join a family first')
     const validationError = validateTransactionSplits(input.amount, input.splits)
     if (validationError) throw new Error(validationError)
 
@@ -288,7 +290,7 @@ export function useBudget({ familyId, month }: UseBudgetOptions) {
     })) as Json
     const { error: transactionError } = await supabase.rpc('create_budget_transaction', {
       owner_id: user.id,
-      fam_id: familyId ?? null,
+      fam_id: familyId,
       transaction_amount: input.amount,
       transaction_date: input.occurredOn,
       transaction_merchant: input.merchant,

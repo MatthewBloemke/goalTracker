@@ -89,7 +89,7 @@ test('week is the main view; month navigation, date jumps and Today are availabl
   ).toBeInTheDocument();
 });
 test('adding a custom meal from a day saves against that date', async () => {
-  render(<MealPlanner familyId={null} />);
+  render(<MealPlanner familyId="family" familyName="Smiths" />);
   fireEvent.click(
     screen.getByRole('button', { name: 'Plan meal for 2026-10-28' }),
   );
@@ -127,7 +127,7 @@ test('existing entries open for editing and are ordered within their date', () =
       updated_at: '',
     },
   ];
-  render(<MealPlanner familyId={null} />);
+  render(<MealPlanner familyId="family" familyName="Smiths" />);
   fireEvent.click(
     screen.getByRole('button', {
       name: 'Edit Dinner: Leftovers on 2026-10-25',
@@ -139,7 +139,7 @@ test('existing entries open for editing and are ordered within their date', () =
 });
 test('load failures cannot be mistaken for an empty calendar; refresh remains available', () => {
   mockPlan.error = 'Connection lost';
-  render(<MealPlanner familyId={null} />);
+  render(<MealPlanner familyId="family" familyName="Smiths" />);
   expect(screen.getByRole('alert')).toHaveTextContent('Connection lost');
   expect(
     screen.queryByRole('region', { name: 'Week meal calendar' }),
@@ -166,7 +166,7 @@ test.each(['light', 'dark'] as const)(
     }));
     render(
       <ThemeProvider theme={createTheme({ palette: { mode } })}>
-        <MealPlanner familyId={null} />
+        <MealPlanner familyId="family" familyName="Smiths" />
       </ThemeProvider>,
     );
     const legend = within(screen.getByRole('list', { name: 'Meal types' }));
@@ -209,7 +209,7 @@ test.each(['light', 'dark'] as const)(
 test('save feedback disappears automatically without a persistent calendar banner', async () => {
   jest.useFakeTimers();
   try {
-    render(<MealPlanner familyId={null} />);
+    render(<MealPlanner familyId="family" familyName="Smiths" />);
     fireEvent.click(screen.getByRole('button', { name: 'Plan a meal' }));
     fireEvent.click(screen.getByRole('button', { name: 'Custom meal' }));
     fireEvent.change(screen.getByLabelText('Meal name'), {

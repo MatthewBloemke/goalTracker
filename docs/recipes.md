@@ -1,6 +1,6 @@
 # Recipe library
 
-Meal Planning now contains a shared family recipe library (or a personal library when outside a family). Personal recipes are preserved when joining a family. Recipes have UUIDs, separate ordered ingredient and instruction records, numeric cooking quantities, separate numeric shopping quantities/units, servings, notes, a source link and normalized tag arrays. They are not stored as one text field.
+Meal Planning contains a shared family recipe library. Every user must create or join a family before using Family Portal, and every recipe belongs to that active family. Recipes have UUIDs, separate ordered ingredient and instruction records, numeric cooking quantities, separate numeric shopping quantities/units, servings, notes, a source link and normalized tag arrays. They are not stored as one text field.
 
 Cooking quantities display as kitchen fractions in saved recipes, meal-plan recipe details and the import/edit form (for example, `0.5` → `½` and `1.25` → `1¼`). The form accepts `1/2`, `1 1/2`, pasted fraction symbols and decimals, and validates them before saving numeric values. Blank quantities remain unknown/“to taste”. Unusual precise measurements are not forced into an inaccurate fraction, and saving an unedited quantity preserves its original numeric precision. Existing recipes gain fraction display without re-importing; this UI change requires no database migration or Edge Function redeployment.
 

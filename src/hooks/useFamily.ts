@@ -1,21 +1,18 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useContext, useRef } from 'react';
 import { useSupabase } from '@/components/providers/SupabaseProvider';
+import { FamilyContext } from '@/components/providers/FamilyContext';
 import type {
   Family,
   FamilySettings,
   SnowballStrategy,
   MemberWithFamily,
   FamilyMemberWithProfile,
-  InsertFamily,
-  InsertFamilyMember,
-  InsertFamilySettings,
 } from '@/types';
 
-export function useFamily() {
+export function useFamilyState() {
   const { supabase, user } = useSupabase();
-  console.log(user);
   const [family, setFamily] = useState<Family | null>(null);
   const [members, setMembers] = useState<FamilyMemberWithProfile[]>([]);
   const [settings, setSettings] = useState<FamilySettings | null>(null);
@@ -123,13 +120,25 @@ export function useFamily() {
     void Promise.resolve().then(() => fetchFamily(true));
   }, [fetchFamily]);
 
-  // Realtime: watch for member changes
+  // Realtime: watch this user's membership plus changes to the active family.
   useEffect(() => {
-    if (!user || !family) return;
+    if (!user) return;
 
-    const channel = supabase
+    let channel = supabase
       .channel('family-members-realtime')
       .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'family_members',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => fetchFamily(),
+      );
+
+    if (family) {
+      channel = channel.on(
         'postgres_changes',
         {
           event: '*',
@@ -138,10 +147,15 @@ export function useFamily() {
           filter: `family_id=eq.${family.id}`,
         },
         () => fetchFamily(),
-      )
-      .subscribe();
+      );
+    }
+
+    channel.subscribe();
+    const refreshOnFocus = () => void fetchFamily();
+    window.addEventListener('focus', refreshOnFocus);
 
     return () => {
+      window.removeEventListener('focus', refreshOnFocus);
       supabase.removeChannel(channel);
     };
   }, [supabase, user, family, fetchFamily]);
@@ -149,55 +163,13 @@ export function useFamily() {
   const createFamily = useCallback(
     async (name: string) => {
       if (!user) return { success: false, error: 'Not authenticated' };
-
-      // Re-fetch the session to ensure we have a fresh token
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session)
-        return {
-          success: false,
-          error: 'Session expired, please sign in again',
-        };
-
-      const familyInsert: InsertFamily = { name, created_by: session.user.id };
-
-      // Insert without chained select — the select RLS policy blocks the
-      // chained read because family_members doesn't exist yet at that point
-      const { error: familyError } = await supabase
-        .from('families')
-        .insert(familyInsert);
-
-      if (familyError) {
-        console.error('createFamily error:', familyError);
-        return { success: false, error: familyError?.message };
+      const { error: createError } = await supabase.rpc(
+        'create_family_for_current_user',
+        { family_name: name },
+      );
+      if (createError) {
+        return { success: false, error: createError.message };
       }
-
-      // Now fetch the newly created family separately
-      const { data: newFamily, error: fetchError } = await supabase
-        .from('families')
-        .select('*')
-        .eq('created_by', session.user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (fetchError || !newFamily)
-        return { success: false, error: fetchError?.message };
-
-      const memberInsert: InsertFamilyMember = {
-        family_id: newFamily.id,
-        user_id: user.id,
-        role: 'admin',
-      };
-      await supabase.from('family_members').insert(memberInsert);
-
-      const settingsInsert: InsertFamilySettings = {
-        family_id: newFamily.id,
-        strategy: 'snowball',
-        extra_monthly_budget: 0,
-      };
-      await supabase.from('family_settings').insert(settingsInsert);
 
       await fetchFamily();
       return { success: true };
@@ -208,29 +180,10 @@ export function useFamily() {
   const joinFamily = useCallback(
     async (inviteCode: string) => {
       if (!user) return { success: false };
-
-      // Use invite_code lookup via a public-accessible query
-      // We need the family id before we're a member, so we use created_by-independent lookup
-      const { data: targetFamilies, error: lookupError } = await supabase
-        .from('families')
-        .select('id, name')
-        .eq('invite_code', inviteCode.toUpperCase())
-        .limit(1);
-
-      if (lookupError || !targetFamilies || targetFamilies.length === 0) {
-        return { success: false, error: 'Invalid invite code' };
-      }
-
-      const targetFamily = targetFamilies[0] as unknown as Family;
-
-      const memberInsert: InsertFamilyMember = {
-        family_id: targetFamily.id,
-        user_id: user.id,
-        role: 'member',
-      };
-      const { error: joinError } = await supabase
-        .from('family_members')
-        .insert(memberInsert);
+      const { error: joinError } = await supabase.rpc(
+        'join_family_with_invite',
+        { invite_code_input: inviteCode },
+      );
 
       if (joinError) return { success: false, error: joinError.message };
 
@@ -350,4 +303,14 @@ export function useFamily() {
     promoteMember,
     refetch: fetchFamily,
   };
+}
+
+export type FamilyState = ReturnType<typeof useFamilyState>;
+
+export function useFamily() {
+  const context = useContext(FamilyContext);
+  if (!context) {
+    throw new Error('useFamily must be used within FamilyProvider');
+  }
+  return context;
 }
