@@ -149,6 +149,21 @@ export function activeMovieLoan(copy: MovieCopy) {
   return copy.loans.find(({ returned_at }) => returned_at === null) ?? null;
 }
 
+export function preferredMovieCopy(
+  movie: SharedLibraryMovie,
+  currentFamilyId: string,
+) {
+  return movie.owners
+    .flatMap((owner) => owner.copies.map((copy) => ({ owner, copy })))
+    .sort((a, b) => {
+      const ownershipPriority = Number(a.owner.id !== currentFamilyId)
+        - Number(b.owner.id !== currentFamilyId);
+      if (ownershipPriority !== 0) return ownershipPriority;
+      return Number(activeMovieLoan(a.copy) !== null)
+        - Number(activeMovieLoan(b.copy) !== null);
+    })[0] ?? null;
+}
+
 export function formatLoanTimestamp(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Unknown date';

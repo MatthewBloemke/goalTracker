@@ -8,6 +8,7 @@ import {
   moviePosterUrl,
   movieReleaseYear,
   parseMovieSearchResults,
+  preferredMovieCopy,
   type LibraryLoanRow,
 } from './family-library';
 
@@ -65,6 +66,25 @@ describe('family library helpers', () => {
     expect(dvdCopy.loans.map(({ id }) => id)).toEqual(['active', 'older']);
     expect(activeMovieLoan(dvdCopy)?.id).toBe('active');
     expect(activeMovieLoan(bluRayCopy)?.id).toBe('other-copy');
+  });
+
+  it('prefers our copy for a card click, then an available connected copy', () => {
+    const families = [
+      { id: 'family-1', name: 'Bloemke' },
+      { id: 'family-2', name: 'Smith' },
+    ];
+    const connectedOnly = groupLibraryMovies([
+      row({ id: 'borrowed', family_id: 'family-2' }),
+      row({ id: 'available', family_id: 'family-2', media_format: 'blu_ray' }),
+    ], families, [loan({ family_movie_id: 'borrowed' })])[0];
+    expect(preferredMovieCopy(connectedOnly, 'family-1')?.copy.libraryMovieId).toBe('available');
+
+    const withOurBorrowedCopy = groupLibraryMovies([
+      row({ id: 'ours' }),
+      row({ id: 'theirs', family_id: 'family-2', media_format: 'blu_ray' }),
+    ], families, [loan({ family_movie_id: 'ours' })])[0];
+    expect(preferredMovieCopy(withOurBorrowedCopy, 'family-1')?.copy.libraryMovieId).toBe('ours');
+    expect(preferredMovieCopy({ ...withOurBorrowedCopy, owners: [] }, 'family-1')).toBeNull();
   });
 
   it('ignores rows from unavailable families and sorts movies by title', () => {

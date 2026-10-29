@@ -36,6 +36,7 @@ import {
   movieMediaFormatLabel,
   moviePosterUrl,
   movieReleaseYear,
+  preferredMovieCopy,
 } from '../_lib/family-library';
 import { AddMovieDialog } from './AddMovieDialog';
 import { LibraryCircleDialog } from './LibraryCircleDialog';
@@ -253,10 +254,29 @@ export function FamilyLibrary({
             >
               {visibleMovies.map((movie) => {
                 const poster = moviePosterUrl(movie.posterPath);
+                const preferred = preferredMovieCopy(movie, familyId);
+                const openCopy = (ownerId: string, copyId: string) =>
+                  setSelectedCopy({
+                    movieId: movie.tmdbMovieId,
+                    ownerId,
+                    copyId,
+                  });
                 return (
                   <li key={movie.tmdbMovieId} className="group min-w-0">
-                    <article>
-                      <div className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-(--border) bg-(--surface-2) shadow-sm transition group-hover:-translate-y-1 group-hover:shadow-lg">
+                    <article
+                      className="relative -m-2 h-full cursor-pointer rounded-3xl border border-transparent p-2 transition hover:border-(--border) hover:bg-(--surface)"
+                    >
+                      <button
+                        type="button"
+                        aria-label={`Open ${movie.title} details`}
+                        className="absolute inset-0 z-0 rounded-3xl outline-none focus-visible:ring-2 focus-visible:ring-(--accent-green)"
+                        onClick={() => {
+                          if (preferred) {
+                            openCopy(preferred.owner.id, preferred.copy.libraryMovieId);
+                          }
+                        }}
+                      />
+                      <div className="pointer-events-none relative z-10 aspect-[2/3] overflow-hidden rounded-2xl border border-(--border) bg-(--surface-2) shadow-sm transition group-hover:-translate-y-1 group-hover:shadow-lg">
                         {poster ? (
                           <Image
                             src={poster}
@@ -273,19 +293,19 @@ export function FamilyLibrary({
                         )}
                       </div>
                       <h3
-                        className="mt-2 truncate text-sm font-semibold"
+                        className="pointer-events-none relative z-10 mt-2 truncate text-sm font-semibold"
                         title={movie.title}
                       >
                         {movie.title}
                       </h3>
-                      <div className="mt-1 flex items-center gap-1">
+                      <div className="pointer-events-none relative z-10 mt-1 flex items-center gap-1">
                         {movieReleaseYear(movie.releaseDate) && (
                           <span className="numeric-value mr-1 text-xs text-(--text-secondary)">
                             {movieReleaseYear(movie.releaseDate)}
                           </span>
                         )}
                       </div>
-                      <div className="mt-2 flex flex-col items-start gap-1">
+                      <div className="relative z-10 mt-2 flex flex-col items-start gap-1">
                         {movie.owners.flatMap((owner) =>
                           owner.copies.map((copy) => {
                             const loan = activeMovieLoan(copy);
@@ -296,21 +316,19 @@ export function FamilyLibrary({
                                 key={copy.libraryMovieId}
                                 clickable
                                 size="small"
-                                color={loan ? 'warning' : 'default'}
-                                variant={loan ? 'filled' : 'outlined'}
+                                color={loan ? 'warning' : 'success'}
+                                variant={owner.id === familyId ? 'filled' : 'outlined'}
                                 label={`${ownerLabel} · ${movieMediaFormatLabel(copy.mediaFormat)} · ${loan ? `With ${loan.borrower_family_name}` : 'Available'}`}
                                 sx={{
                                   maxWidth: '100%',
                                   height: 24,
                                   fontSize: 10,
+                                  fontWeight: owner.id === familyId ? 700 : 500,
                                 }}
-                                onClick={() =>
-                                  setSelectedCopy({
-                                    movieId: movie.tmdbMovieId,
-                                    ownerId: owner.id,
-                                    copyId: copy.libraryMovieId,
-                                  })
-                                }
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  openCopy(owner.id, copy.libraryMovieId);
+                                }}
                               />
                             );
                           }),
