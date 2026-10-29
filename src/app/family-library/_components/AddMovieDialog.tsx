@@ -11,6 +11,8 @@ import {
   DialogTitle,
   IconButton,
   InputAdornment,
+  ToggleButton,
+  ToggleButtonGroup,
   Tooltip,
 } from '@mui/material';
 import { useSupabase } from '@/components/providers/SupabaseProvider';
@@ -20,17 +22,20 @@ import { SecondaryButton } from '@/components/ui/SecondaryButton';
 import {
   moviePosterUrl,
   movieReleaseYear,
+  movieMediaFormatLabel,
+  MOVIE_MEDIA_FORMATS,
   parseMovieSearchResults,
   type TmdbMovieSearchResult,
 } from '../_lib/family-library';
+import type { MovieMediaFormat } from '@/types';
 import { prepareMovieCaseImage } from '../_lib/movie-case-image';
 
 export function AddMovieDialog({
-  ownedMovieIds,
+  ownedCopyKeys,
   onClose,
   onAdded,
 }: {
-  ownedMovieIds: ReadonlySet<number>;
+  ownedCopyKeys: ReadonlySet<string>;
   onClose: () => void;
   onAdded: (title: string) => Promise<void>;
 }) {
@@ -38,6 +43,7 @@ export function AddMovieDialog({
   const cameraInput = useRef<HTMLInputElement>(null);
   const uploadInput = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
+  const [mediaFormat, setMediaFormat] = useState<MovieMediaFormat>('dvd');
   const [results, setResults] = useState<TmdbMovieSearchResult[]>([]);
   const [searched, setSearched] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -111,6 +117,26 @@ export function AddMovieDialog({
       <DialogContent className="flex flex-col gap-4">
         {error && <Alert severity="error">{error}</Alert>}
         {scanNotice && <Alert severity="info">{scanNotice}</Alert>}
+        <div>
+          <p className="mb-2 text-sm font-medium">Physical format</p>
+          <ToggleButtonGroup
+            exclusive
+            fullWidth
+            size="small"
+            value={mediaFormat}
+            aria-label="Movie format"
+            disabled={busy}
+            onChange={(_, value: MovieMediaFormat | null) => {
+              if (value) setMediaFormat(value);
+            }}
+          >
+            {MOVIE_MEDIA_FORMATS.map((format) => (
+              <ToggleButton key={format} value={format}>
+                {movieMediaFormatLabel(format)}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+        </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <AppTextField
             autoFocus
@@ -192,7 +218,7 @@ export function AddMovieDialog({
         {results.length > 0 && (
           <ul className="grid gap-3 sm:grid-cols-2" aria-label="Movie search results">
             {results.map((movie) => {
-              const owned = ownedMovieIds.has(movie.id);
+              const owned = ownedCopyKeys.has(`${movie.id}:${mediaFormat}`);
               const poster = moviePosterUrl(movie.posterPath, 'w342');
               return (
                 <li key={movie.id} className="flex min-w-0 gap-3 rounded-2xl border border-(--border) bg-(--surface) p-3">
@@ -220,7 +246,11 @@ export function AddMovieDialog({
                         setError('');
                         try {
                           const { error: addError } = await supabase.functions.invoke('tmdb-movies', {
-                            body: { action: 'add', movieId: movie.id },
+                            body: {
+                              action: 'add',
+                              movieId: movie.id,
+                              mediaFormat,
+                            },
                           });
                           if (addError) throw new Error(await readFunctionError(addError, 'Unable to add this movie.'));
                           await onAdded(movie.title);
@@ -231,7 +261,7 @@ export function AddMovieDialog({
                         }
                       }}
                     >
-                      {owned ? 'In library' : 'Add'}
+                      {owned ? `${movieMediaFormatLabel(mediaFormat)} owned` : `Add ${movieMediaFormatLabel(mediaFormat)}`}
                     </PrimaryButton>
                   </div>
                 </li>

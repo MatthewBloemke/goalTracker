@@ -523,6 +523,7 @@ export type Database = {
           family_id: string
           genres: string[]
           id: string
+          media_format: Database["public"]["Enums"]["movie_media_format"]
           original_title: string
           overview: string
           poster_path: string | null
@@ -538,6 +539,7 @@ export type Database = {
           family_id: string
           genres?: string[]
           id?: string
+          media_format: Database["public"]["Enums"]["movie_media_format"]
           original_title?: string
           overview?: string
           poster_path?: string | null
@@ -553,6 +555,7 @@ export type Database = {
           family_id?: string
           genres?: string[]
           id?: string
+          media_format?: Database["public"]["Enums"]["movie_media_format"]
           original_title?: string
           overview?: string
           poster_path?: string | null
@@ -659,6 +662,60 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      movie_loans: {
+        Row: {
+          borrowed_at: string
+          borrower_family_id: string
+          borrower_family_name: string
+          created_at: string
+          created_by: string | null
+          family_movie_id: string
+          id: string
+          returned_at: string | null
+          returned_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          borrowed_at?: string
+          borrower_family_id: string
+          borrower_family_name: string
+          created_at?: string
+          created_by?: string | null
+          family_movie_id: string
+          id?: string
+          returned_at?: string | null
+          returned_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          borrowed_at?: string
+          borrower_family_id?: string
+          borrower_family_name?: string
+          created_at?: string
+          created_by?: string | null
+          family_movie_id?: string
+          id?: string
+          returned_at?: string | null
+          returned_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movie_loans_borrower_family_id_fkey"
+            columns: ["borrower_family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movie_loans_family_movie_id_fkey"
+            columns: ["family_movie_id"]
+            isOneToOne: false
+            referencedRelation: "family_movies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -874,6 +931,14 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      lend_family_movie: {
+        Args: { borrower_id: string; copy_id: string }
+        Returns: string
+      }
+      return_family_movie: {
+        Args: { loan_id: string }
+        Returns: undefined
+      }
       copy_budget_month: {
         Args: { source_budget_id: string; target_month: string }
         Returns: string
@@ -906,6 +971,7 @@ export type Database = {
     }
     Enums: {
       family_role: "admin" | "member"
+      movie_media_format: "dvd" | "blu_ray" | "4k_uhd"
       payment_type: "minimum" | "extra" | "manual"
       snowball_strategy: "snowball" | "avalanche"
     }
@@ -1036,6 +1102,7 @@ export const Constants = {
   public: {
     Enums: {
       family_role: ["admin", "member"],
+      movie_media_format: ["dvd", "blu_ray", "4k_uhd"],
       payment_type: ["minimum", "extra", "manual"],
       snowball_strategy: ["snowball", "avalanche"],
     },

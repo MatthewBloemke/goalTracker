@@ -1,7 +1,15 @@
-import type { FamilyMovie, LibraryCircle } from '@/types';
+import type {
+  FamilyMovie,
+  LibraryCircle,
+  MovieLoan,
+  MovieMediaFormat,
+} from '@/types';
 
 export type LibraryMovieRow = Omit<FamilyMovie, 'created_by'>;
+export type LibraryLoanRow = Omit<MovieLoan, 'created_by' | 'returned_by'>;
 export type LibraryCircleView = Omit<LibraryCircle, 'created_by_user_id'>;
+
+export const MOVIE_MEDIA_FORMATS: MovieMediaFormat[] = ['dvd', 'blu_ray', '4k_uhd'];
 
 export interface LibraryFamily {
   id: string;
@@ -9,7 +17,13 @@ export interface LibraryFamily {
 }
 
 export interface MovieOwner extends LibraryFamily {
+  copies: MovieCopy[];
+}
+
+export interface MovieCopy {
   libraryMovieId: string;
+  mediaFormat: MovieMediaFormat;
+  loans: LibraryLoanRow[];
 }
 
 export interface SharedLibraryMovie {
@@ -36,19 +50,33 @@ export interface TmdbMovieSearchResult {
 export function groupLibraryMovies(
   rows: LibraryMovieRow[],
   families: LibraryFamily[],
+  loans: LibraryLoanRow[] = [],
 ): SharedLibraryMovie[] {
   const familyById = new Map(families.map((family) => [family.id, family]));
+  const loansByCopy = new Map<string, LibraryLoanRow[]>();
+  for (const loan of loans) {
+    const history = loansByCopy.get(loan.family_movie_id) ?? [];
+    history.push(loan);
+    loansByCopy.set(loan.family_movie_id, history);
+  }
+  for (const history of loansByCopy.values()) {
+    history.sort((a, b) => b.borrowed_at.localeCompare(a.borrowed_at));
+  }
   const movies = new Map<number, SharedLibraryMovie>();
 
   for (const row of rows) {
     const family = familyById.get(row.family_id);
     if (!family) continue;
-    const owner = { ...family, libraryMovieId: row.id };
+    const copy: MovieCopy = {
+      libraryMovieId: row.id,
+      mediaFormat: row.media_format,
+      loans: loansByCopy.get(row.id) ?? [],
+    };
     const existing = movies.get(row.tmdb_movie_id);
     if (existing) {
-      if (!existing.owners.some(({ id }) => id === family.id)) {
-        existing.owners.push(owner);
-      }
+      const owner = existing.owners.find(({ id }) => id === family.id);
+      if (owner) owner.copies.push(copy);
+      else existing.owners.push({ ...family, copies: [copy] });
       continue;
     }
     movies.set(row.tmdb_movie_id, {
@@ -60,14 +88,22 @@ export function groupLibraryMovies(
       backdropPath: row.backdrop_path,
       overview: row.overview,
       genres: row.genres,
-      owners: [owner],
+      owners: [{ ...family, copies: [copy] }],
     });
   }
 
   return [...movies.values()]
     .map((movie) => ({
       ...movie,
-      owners: movie.owners.sort((a, b) => a.name.localeCompare(b.name)),
+      owners: movie.owners
+        .map((owner) => ({
+          ...owner,
+          copies: owner.copies.sort(
+            (a, b) => MOVIE_MEDIA_FORMATS.indexOf(a.mediaFormat)
+              - MOVIE_MEDIA_FORMATS.indexOf(b.mediaFormat),
+          ),
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
     }))
     .sort((a, b) => a.title.localeCompare(b.title));
 }
@@ -89,6 +125,7 @@ export function filterLibraryMovies(
       movie.overview,
       ...movie.genres,
       ...movie.owners.map(({ name }) => name),
+      ...movie.owners.flatMap(({ copies }) => copies.map(({ mediaFormat }) => movieMediaFormatLabel(mediaFormat))),
     ].join(' ').toLocaleLowerCase();
     return words.every((word) => searchable.includes(word));
   });
@@ -100,6 +137,26 @@ export function moviePosterUrl(path: string | null, size: 'w342' | 'w500' = 'w50
 
 export function movieReleaseYear(date: string | null) {
   return date?.match(/^\d{4}/)?.[0] ?? '';
+}
+
+export function movieMediaFormatLabel(format: MovieMediaFormat) {
+  if (format === 'blu_ray') return 'Blu-ray';
+  if (format === '4k_uhd') return '4K';
+  return 'DVD';
+}
+
+export function activeMovieLoan(copy: MovieCopy) {
+  return copy.loans.find(({ returned_at }) => returned_at === null) ?? null;
+}
+
+export function formatLoanTimestamp(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Unknown date';
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(date);
 }
 
 export function parseMovieSearchResults(value: unknown): TmdbMovieSearchResult[] {

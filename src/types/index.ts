@@ -26,6 +26,8 @@ export type LibraryCircle = Database['public']['Tables']['library_circles']['Row
 export type LibraryCircleFamily =
   Database['public']['Tables']['library_circle_families']['Row'];
 export type FamilyMovie = Database['public']['Tables']['family_movies']['Row'];
+export type MovieLoan = Database['public']['Tables']['movie_loans']['Row'];
+export type MovieMediaFormat = Database['public']['Enums']['movie_media_format'];
 
 // INSERT TYPES — for writing to the DB
 export type InsertLoan = Database['public']['Tables']['loans']['Insert'];

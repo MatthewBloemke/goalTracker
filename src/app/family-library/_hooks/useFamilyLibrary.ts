@@ -5,6 +5,7 @@ import { useSupabase } from '@/components/providers/SupabaseProvider';
 import type {
   LibraryCircleView,
   LibraryFamily,
+  LibraryLoanRow,
   LibraryMovieRow,
 } from '../_lib/family-library';
 
@@ -12,6 +13,7 @@ interface LibraryState {
   circle: LibraryCircleView | null;
   families: LibraryFamily[];
   movies: LibraryMovieRow[];
+  loans: LibraryLoanRow[];
   error: string | null;
 }
 
@@ -22,6 +24,7 @@ export function useFamilyLibrary(familyId: string, familyName: string) {
     circle: null,
     families: [{ id: familyId, name: familyName }],
     movies: [],
+    loans: [],
     error: null,
   });
   const [loading, setLoading] = useState(true);
@@ -64,12 +67,27 @@ export function useFamilyLibrary(familyId: string, familyName: string) {
       const familyIds = families.map(({ id }) => id);
       const { data: movies, error: moviesError } = await supabase
         .from('family_movies')
-        .select('id, family_id, tmdb_movie_id, title, original_title, release_date, poster_path, backdrop_path, overview, genres, created_at, updated_at')
+        .select('id, family_id, tmdb_movie_id, media_format, title, original_title, release_date, poster_path, backdrop_path, overview, genres, created_at, updated_at')
         .in('family_id', familyIds)
         .order('title');
       if (moviesError) throw new Error(moviesError.message);
+      const copyIds = (movies ?? []).map(({ id }) => id);
+      const { data: loans, error: loansError } = copyIds.length > 0
+        ? await supabase
+          .from('movie_loans')
+          .select('id, family_movie_id, borrower_family_id, borrower_family_name, borrowed_at, returned_at, created_at, updated_at')
+          .in('family_movie_id', copyIds)
+          .order('borrowed_at', { ascending: false })
+        : { data: [], error: null };
+      if (loansError) throw new Error(loansError.message);
       if (request === sequence.current) {
-        setState({ circle, families, movies: movies ?? [], error: null });
+        setState({
+          circle,
+          families,
+          movies: movies ?? [],
+          loans: loans ?? [],
+          error: null,
+        });
       }
     } catch (error) {
       if (request === sequence.current) {
@@ -96,6 +114,7 @@ export function useFamilyLibrary(familyId: string, familyName: string) {
     const channel = supabase
       .channel(`family-library:${familyId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'family_movies' }, reload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'movie_loans' }, reload)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'library_circle_families' }, reload)
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') setRealtimeError(null);
@@ -135,6 +154,21 @@ export function useFamilyLibrary(familyId: string, familyName: string) {
     if (error) throw new Error(error.message);
     await refresh();
   };
+  const lendMovie = async (libraryMovieId: string, borrowerFamilyId: string) => {
+    const { error } = await supabase.rpc('lend_family_movie', {
+      copy_id: libraryMovieId,
+      borrower_id: borrowerFamilyId,
+    });
+    if (error) throw new Error(error.message);
+    await refresh();
+  };
+  const returnMovie = async (loanId: string) => {
+    const { error } = await supabase.rpc('return_family_movie', {
+      loan_id: loanId,
+    });
+    if (error) throw new Error(error.message);
+    await refresh();
+  };
 
   return {
     ...state,
@@ -145,5 +179,7 @@ export function useFamilyLibrary(familyId: string, familyName: string) {
     joinCircle,
     leaveCircle,
     removeMovie,
+    lendMovie,
+    returnMovie,
   };
 }

@@ -1,10 +1,14 @@
 import type { FamilyMovie } from '@/types';
 import {
+  activeMovieLoan,
   filterLibraryMovies,
+  formatLoanTimestamp,
   groupLibraryMovies,
+  movieMediaFormatLabel,
   moviePosterUrl,
   movieReleaseYear,
   parseMovieSearchResults,
+  type LibraryLoanRow,
 } from './family-library';
 
 const row = (overrides: Partial<FamilyMovie>): FamilyMovie => ({
@@ -12,22 +16,55 @@ const row = (overrides: Partial<FamilyMovie>): FamilyMovie => ({
   title: 'Jurassic Park', original_title: 'Jurassic Park', release_date: '1993-06-11',
   poster_path: '/poster.jpg', backdrop_path: null, overview: 'Dinosaurs escape.',
   genres: ['Adventure', 'Science Fiction'], created_by: 'user-1',
+  media_format: 'dvd',
   created_at: '2026-10-29T00:00:00Z', updated_at: '2026-10-29T00:00:00Z',
   ...overrides,
 });
 
+const loan = (overrides: Partial<LibraryLoanRow> = {}): LibraryLoanRow => ({
+  id: 'loan-1',
+  family_movie_id: 'row-1',
+  borrower_family_id: 'family-2',
+  borrower_family_name: 'Smith',
+  borrowed_at: '2026-10-20T15:00:00Z',
+  returned_at: null,
+  created_at: '2026-10-20T15:00:00Z',
+  updated_at: '2026-10-20T15:00:00Z',
+  ...overrides,
+});
+
 describe('family library helpers', () => {
-  it('groups the same movie and lists each owning family once', () => {
+  it('groups the same movie by family while retaining each physical format', () => {
     const grouped = groupLibraryMovies([
       row({}),
       row({ id: 'row-2', family_id: 'family-2' }),
-      row({ id: 'row-3', family_id: 'family-2' }),
+      row({ id: 'row-3', family_id: 'family-2', media_format: '4k_uhd' }),
     ], [
       { id: 'family-1', name: 'Bloemke' },
       { id: 'family-2', name: 'Smith' },
     ]);
     expect(grouped).toHaveLength(1);
     expect(grouped[0].owners.map(({ name }) => name)).toEqual(['Bloemke', 'Smith']);
+    expect(grouped[0].owners[1].copies.map(({ mediaFormat }) => mediaFormat)).toEqual(['dvd', '4k_uhd']);
+  });
+
+  it('attaches dated loan history to the correct physical copy', () => {
+    const grouped = groupLibraryMovies([
+      row({}),
+      row({ id: 'row-2', media_format: 'blu_ray' }),
+    ], [
+      { id: 'family-1', name: 'Bloemke' },
+      { id: 'family-2', name: 'Smith' },
+    ], [
+      loan({ id: 'older', returned_at: '2026-10-22T15:00:00Z' }),
+      loan({ id: 'active', borrowed_at: '2026-10-25T15:00:00Z' }),
+      loan({ id: 'other-copy', family_movie_id: 'row-2' }),
+    ]);
+
+    const [dvdCopy, bluRayCopy] = grouped[0].owners[0].copies;
+    expect(dvdCopy.loans.map(({ id }) => id)).toEqual(['active', 'older']);
+    expect(activeMovieLoan(dvdCopy)?.id).toBe('active');
+    expect(activeMovieLoan(bluRayCopy)?.id).toBe('other-copy');
   });
 
   it('ignores rows from unavailable families and sorts movies by title', () => {
@@ -54,6 +91,14 @@ describe('family library helpers', () => {
     expect(moviePosterUrl(null)).toBeNull();
     expect(movieReleaseYear('1993-06-11')).toBe('1993');
     expect(movieReleaseYear(null)).toBe('');
+  });
+
+  it('formats physical formats and loan dates for display', () => {
+    expect(movieMediaFormatLabel('dvd')).toBe('DVD');
+    expect(movieMediaFormatLabel('blu_ray')).toBe('Blu-ray');
+    expect(movieMediaFormatLabel('4k_uhd')).toBe('4K');
+    expect(formatLoanTimestamp('2026-10-20T15:00:00Z')).toMatch(/Oct 20, 2026/);
+    expect(formatLoanTimestamp('not-a-date')).toBe('Unknown date');
   });
 
   it('validates TMDB search responses', () => {

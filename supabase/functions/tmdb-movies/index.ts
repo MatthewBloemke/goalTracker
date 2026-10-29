@@ -2,6 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 
 const TMDB_API_URL = 'https://api.themoviedb.org/3'
 const MAX_RESULTS = 12
+const MOVIE_MEDIA_FORMATS = new Set(['dvd', 'blu_ray', '4k_uhd'])
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -60,6 +61,7 @@ Deno.serve(async (request: Request) => {
 
     if (action === 'add') {
       const movieId = readMovieId(body.movieId)
+      const mediaFormat = readMediaFormat(body.mediaFormat)
       const payload = await fetchTmdb(
         new URL(`${TMDB_API_URL}/movie/${movieId}?language=en-US`),
       )
@@ -74,6 +76,7 @@ Deno.serve(async (request: Request) => {
           family_id: membership.family_id,
           created_by: user.id,
           tmdb_movie_id: movie.id,
+          media_format: mediaFormat,
           title: movie.title,
           original_title: movie.originalTitle,
           release_date: movie.releaseDate,
@@ -82,8 +85,8 @@ Deno.serve(async (request: Request) => {
           overview: movie.overview,
           genres: movie.genres,
           updated_at: new Date().toISOString(),
-        }, { onConflict: 'family_id,tmdb_movie_id' })
-        .select('id, family_id, tmdb_movie_id, title, original_title, release_date, poster_path, backdrop_path, overview, genres, created_at, updated_at')
+        }, { onConflict: 'family_id,tmdb_movie_id,media_format' })
+        .select('id, family_id, tmdb_movie_id, media_format, title, original_title, release_date, poster_path, backdrop_path, overview, genres, created_at, updated_at')
         .single()
       if (error) {
         console.error('TMDB movie save failed', { userId: user.id, code: error.code })
@@ -192,6 +195,13 @@ function readMovieId(value: unknown) {
   const id = positiveInteger(value)
   if (!id) throw new PublicError('A valid TMDB movie ID is required.', 400)
   return id
+}
+
+function readMediaFormat(value: unknown) {
+  if (typeof value !== 'string' || !MOVIE_MEDIA_FORMATS.has(value)) {
+    throw new PublicError('Choose DVD, Blu-ray, or 4K.', 400)
+  }
+  return value
 }
 
 function imagePath(value: unknown) {

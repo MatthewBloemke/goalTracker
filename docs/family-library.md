@@ -11,6 +11,16 @@ Family Library lets nearby households share a searchable list of movies they phy
 - Any member of a family can add or remove movies owned by that family.
 - Leaving a circle keeps the family’s saved movie collection but immediately stops sharing it.
 
+## Physical copies and lending
+
+- Every movie copy must be saved as **DVD**, **Blu-ray**, or **4K**.
+- A family can own more than one format of the same title. Each format is tracked as a separate physical copy.
+- Select a copy’s format/availability chip below its poster to see its status and loan history.
+- Only the owning family can mark a copy as borrowed or returned.
+- Borrowers must be another family in the same Library Circle.
+- Each loan records when the copy was borrowed and, once returned, when it came back. Returning a copy closes the active loan without deleting its history.
+- Removing a copy also removes its loan history, so the action is kept inside the copy details dialog and requires confirmation.
+
 ## TMDB setup
 
 Create a TMDB account, open account settings, and request API access. Copy the **API Read Access Token** (the long bearer token, not the short v3 API key), then add it to Supabase:
@@ -78,11 +88,15 @@ Then deploy the web application so the new page and TMDB image configuration are
 
 1. In Family A, open Family Library and create a Library Circle.
 2. Copy its code. Sign in as an admin of Family B and join the circle.
-3. In Family A, search TMDB for `Jurassic Park`, choose the 1993 result, and add it.
-4. In Family B, verify the poster appears with Family A as the owner. Search `Jurassic Park` and filter to Family A.
-5. In Family B, add the same movie. Verify one poster now lists both owners.
-6. Verify Family A still cannot see Family B’s budget, meals, recipes, tasks, debts, or main family invite code.
-7. With an approved AI grant, use **Scan case** on a phone. Confirm the rear camera opens, a likely title is found, and the user must choose a TMDB result before saving.
-8. Scan a blurry or unrelated image. Confirm it returns an actionable error or uncertain match and saves nothing.
-9. Use **Upload photo** with a file over 10 MB or an unsupported type. Confirm it is rejected before the OpenAI request.
-10. Leave the circle as Family B. Confirm Family B’s own movies remain, while Family A’s movies disappear.
+3. In Family A, search TMDB for `Jurassic Park`, choose **Blu-ray**, select the 1993 result, and add it.
+4. Add the same title again as **4K**. Verify one poster displays two separate available copies.
+5. In Family B, verify the poster appears with Family A as the owner. Search `Jurassic Park` and filter to Family A.
+6. In Family A, open the Blu-ray copy, choose Family B, and mark it borrowed. Verify its chip says it is with Family B and the borrowed date appears in its history.
+7. In Family B, verify the borrowed status is visible but the lending controls are not.
+8. In Family A, mark the Blu-ray returned. Verify it is available again and the history keeps both borrowed and returned dates.
+9. In Family B, add the same movie. Verify one poster lists both families and their individual formats/statuses.
+10. Verify Family A still cannot see Family B’s budget, meals, recipes, tasks, debts, or main family invite code.
+11. With an approved AI grant, use **Scan case** on a phone. Confirm the rear camera opens, a likely title is found, and the user must choose a TMDB result and format before saving.
+12. Scan a blurry or unrelated image. Confirm it returns an actionable error or uncertain match and saves nothing.
+13. Use **Upload photo** with a file over 10 MB or an unsupported type. Confirm it is rejected before the OpenAI request.
+14. Leave the circle as Family B. Confirm Family B’s own movies remain, while Family A’s movies disappear.

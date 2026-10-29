@@ -32,11 +32,14 @@ import { useFamilyLibrary } from '../_hooks/useFamilyLibrary';
 import {
   filterLibraryMovies,
   groupLibraryMovies,
+  activeMovieLoan,
+  movieMediaFormatLabel,
   moviePosterUrl,
   movieReleaseYear,
 } from '../_lib/family-library';
 import { AddMovieDialog } from './AddMovieDialog';
 import { LibraryCircleDialog } from './LibraryCircleDialog';
+import { LoanStatusDialog } from './LoanStatusDialog';
 
 export function FamilyLibrary({
   familyId,
@@ -53,20 +56,34 @@ export function FamilyLibrary({
   const [adding, setAdding] = useState(false);
   const [managingCircle, setManagingCircle] = useState(false);
   const [notice, setNotice] = useState('');
-  const [actionError, setActionError] = useState('');
+  const [selectedCopy, setSelectedCopy] = useState<{
+    movieId: number;
+    ownerId: string;
+    copyId: string;
+  } | null>(null);
 
   const movies = useMemo(
-    () => groupLibraryMovies(library.movies, library.families),
-    [library.families, library.movies],
+    () => groupLibraryMovies(library.movies, library.families, library.loans),
+    [library.families, library.loans, library.movies],
   );
   const visibleMovies = useMemo(
     () => filterLibraryMovies(movies, keyword, new Set(familyFilter)),
     [familyFilter, keyword, movies],
   );
-  const ownedMovieIds = useMemo(
-    () => new Set(library.movies.filter(({ family_id }) => family_id === familyId).map(({ tmdb_movie_id }) => tmdb_movie_id)),
+  const ownedCopyKeys = useMemo(
+    () => new Set(library.movies
+      .filter(({ family_id }) => family_id === familyId)
+      .map(({ tmdb_movie_id, media_format }) => `${tmdb_movie_id}:${media_format}`)),
     [familyId, library.movies],
   );
+  const selected = selectedCopy
+    ? (() => {
+      const movie = movies.find(({ tmdbMovieId }) => tmdbMovieId === selectedCopy.movieId);
+      const owner = movie?.owners.find(({ id }) => id === selectedCopy.ownerId);
+      const copy = owner?.copies.find(({ libraryMovieId }) => libraryMovieId === selectedCopy.copyId);
+      return movie && owner && copy ? { movie, owner, copy } : null;
+    })()
+    : null;
 
   return (
     <div className="flex flex-col gap-5">
@@ -87,9 +104,9 @@ export function FamilyLibrary({
         </div>
       </header>
 
-      {(library.error || actionError) && (
+      {library.error && (
         <Alert severity="error">
-          {actionError || `Unable to load the family library: ${library.error}`}
+          Unable to load the family library: {library.error}
         </Alert>
       )}
       {library.realtimeError && <Alert severity="warning">{library.realtimeError}</Alert>}
@@ -175,7 +192,6 @@ export function FamilyLibrary({
             <ul className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6" aria-label="Shared movie collection">
               {visibleMovies.map((movie) => {
                 const poster = moviePosterUrl(movie.posterPath);
-                const ownCopy = movie.owners.find(({ id }) => id === familyId);
                 return (
                   <li key={movie.tmdbMovieId} className="group min-w-0">
                     <article>
@@ -191,40 +207,34 @@ export function FamilyLibrary({
                         ) : (
                           <MovieOutlined className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-(--text-secondary)" sx={{ fontSize: 54 }} />
                         )}
-                        {ownCopy && (
-                          <Tooltip title={`Remove ${movie.title} from ${familyName}`}>
-                            <IconButton
-                              size="small"
-                              aria-label={`Remove ${movie.title} from your library`}
-                              sx={{
-                                position: 'absolute', top: 8, right: 8,
-                                bgcolor: 'rgba(18, 14, 12, 0.78)', color: '#fff',
-                                '&:hover': { bgcolor: 'rgba(18, 14, 12, 0.92)' },
-                              }}
-                              onClick={async () => {
-                                if (!window.confirm(`Remove ${movie.title} from ${familyName}'s library?`)) return;
-                                setActionError('');
-                                try {
-                                  await library.removeMovie(ownCopy.libraryMovieId);
-                                  setNotice(`${movie.title} removed.`);
-                                } catch (error) {
-                                  setActionError(error instanceof Error ? error.message : 'Unable to remove this movie.');
-                                }
-                              }}
-                            >
-                              <CloseRounded fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
                       </div>
                       <h3 className="mt-2 truncate text-sm font-semibold" title={movie.title}>{movie.title}</h3>
-                      <div className="mt-1 flex flex-wrap items-center gap-1">
+                      <div className="mt-1 flex items-center gap-1">
                         {movieReleaseYear(movie.releaseDate) && (
                           <span className="numeric-value mr-1 text-xs text-(--text-secondary)">{movieReleaseYear(movie.releaseDate)}</span>
                         )}
-                        {movie.owners.map((owner) => (
-                          <Chip key={owner.id} label={owner.id === familyId ? 'Ours' : owner.name} size="small" sx={{ height: 22, fontSize: 11 }} />
-                        ))}
+                      </div>
+                      <div className="mt-2 flex flex-col items-start gap-1">
+                        {movie.owners.flatMap((owner) => owner.copies.map((copy) => {
+                          const loan = activeMovieLoan(copy);
+                          const ownerLabel = owner.id === familyId ? 'Ours' : owner.name;
+                          return (
+                            <Chip
+                              key={copy.libraryMovieId}
+                              clickable
+                              size="small"
+                              color={loan ? 'warning' : 'default'}
+                              variant={loan ? 'filled' : 'outlined'}
+                              label={`${ownerLabel} · ${movieMediaFormatLabel(copy.mediaFormat)} · ${loan ? `With ${loan.borrower_family_name}` : 'Available'}`}
+                              sx={{ maxWidth: '100%', height: 24, fontSize: 10 }}
+                              onClick={() => setSelectedCopy({
+                                movieId: movie.tmdbMovieId,
+                                ownerId: owner.id,
+                                copyId: copy.libraryMovieId,
+                              })}
+                            />
+                          );
+                        }))}
                       </div>
                     </article>
                   </li>
@@ -243,12 +253,35 @@ export function FamilyLibrary({
 
       {adding && (
         <AddMovieDialog
-          ownedMovieIds={ownedMovieIds}
+          ownedCopyKeys={ownedCopyKeys}
           onClose={() => setAdding(false)}
           onAdded={async (title) => {
             await library.refresh();
             setAdding(false);
             setNotice(`${title} added to ${familyName}.`);
+          }}
+        />
+      )}
+      {selected && (
+        <LoanStatusDialog
+          movieTitle={selected.movie.title}
+          owner={selected.owner}
+          copy={selected.copy}
+          families={library.families}
+          currentFamilyId={familyId}
+          onClose={() => setSelectedCopy(null)}
+          onLend={async (borrowerFamilyId) => {
+            await library.lendMovie(selected.copy.libraryMovieId, borrowerFamilyId);
+            setNotice(`${selected.movie.title} marked as borrowed.`);
+          }}
+          onReturn={async (loanId) => {
+            await library.returnMovie(loanId);
+            setNotice(`${selected.movie.title} marked as returned.`);
+          }}
+          onRemove={async () => {
+            await library.removeMovie(selected.copy.libraryMovieId);
+            setSelectedCopy(null);
+            setNotice(`${selected.movie.title} ${movieMediaFormatLabel(selected.copy.mediaFormat)} removed.`);
           }}
         />
       )}
