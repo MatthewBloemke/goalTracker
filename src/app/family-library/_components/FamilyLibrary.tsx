@@ -71,18 +71,30 @@ export function FamilyLibrary({
     [familyFilter, keyword, movies],
   );
   const ownedCopyKeys = useMemo(
-    () => new Set(library.movies
-      .filter(({ family_id }) => family_id === familyId)
-      .map(({ tmdb_movie_id, media_format }) => `${tmdb_movie_id}:${media_format}`)),
+    () =>
+      new Set(
+        library.movies
+          .filter(({ family_id }) => family_id === familyId)
+          .map(
+            ({ tmdb_movie_id, media_format }) =>
+              `${tmdb_movie_id}:${media_format}`,
+          ),
+      ),
     [familyId, library.movies],
   );
   const selected = selectedCopy
     ? (() => {
-      const movie = movies.find(({ tmdbMovieId }) => tmdbMovieId === selectedCopy.movieId);
-      const owner = movie?.owners.find(({ id }) => id === selectedCopy.ownerId);
-      const copy = owner?.copies.find(({ libraryMovieId }) => libraryMovieId === selectedCopy.copyId);
-      return movie && owner && copy ? { movie, owner, copy } : null;
-    })()
+        const movie = movies.find(
+          ({ tmdbMovieId }) => tmdbMovieId === selectedCopy.movieId,
+        );
+        const owner = movie?.owners.find(
+          ({ id }) => id === selectedCopy.ownerId,
+        );
+        const copy = owner?.copies.find(
+          ({ libraryMovieId }) => libraryMovieId === selectedCopy.copyId,
+        );
+        return movie && owner && copy ? { movie, owner, copy } : null;
+      })()
     : null;
 
   return (
@@ -90,15 +102,18 @@ export function FamilyLibrary({
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-serif text-3xl sm:text-4xl">Family Library</h1>
-          <p className="mt-1 text-sm text-(--text-secondary)">
-            Find a movie nearby before renting or buying it.
-          </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <SecondaryButton startIcon={<GroupsRounded />} onClick={() => setManagingCircle(true)}>
+          <SecondaryButton
+            startIcon={<GroupsRounded />}
+            onClick={() => setManagingCircle(true)}
+          >
             {library.circle ? library.circle.name : 'Connect families'}
           </SecondaryButton>
-          <PrimaryButton startIcon={<AddRounded />} onClick={() => setAdding(true)}>
+          <PrimaryButton
+            startIcon={<AddRounded />}
+            onClick={() => setAdding(true)}
+          >
             Add movie
           </PrimaryButton>
         </div>
@@ -109,17 +124,30 @@ export function FamilyLibrary({
           Unable to load the family library: {library.error}
         </Alert>
       )}
-      {library.realtimeError && <Alert severity="warning">{library.realtimeError}</Alert>}
+      {library.realtimeError && (
+        <Alert severity="warning">{library.realtimeError}</Alert>
+      )}
       {!library.circle && !library.loading && (
         <Alert
           severity="info"
-          action={<SecondaryButton size="small" onClick={() => setManagingCircle(true)}>Connect</SecondaryButton>}
+          action={
+            <SecondaryButton
+              size="small"
+              onClick={() => setManagingCircle(true)}
+            >
+              Connect
+            </SecondaryButton>
+          }
         >
-          You’re viewing only {familyName}. Connect families to search everyone’s movies together.
+          You’re viewing only {familyName}. Connect families to search
+          everyone’s movies together.
         </Alert>
       )}
 
-      <section className="flex flex-col gap-3 rounded-2xl border border-(--border) bg-(--surface) p-3 sm:flex-row sm:items-center" aria-label="Library filters">
+      <section
+        className="flex flex-col gap-3 rounded-2xl border border-(--border) bg-(--surface) p-3 sm:flex-row sm:items-center"
+        aria-label="Library filters"
+      >
         <AppTextField
           label="Search movies"
           placeholder="Title, genre, or family"
@@ -127,10 +155,18 @@ export function FamilyLibrary({
           sx={{ flex: 1 }}
           slotProps={{
             input: {
-              startAdornment: <InputAdornment position="start"><SearchRounded fontSize="small" /></InputAdornment>,
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchRounded fontSize="small" />
+                </InputAdornment>
+              ),
               endAdornment: keyword ? (
                 <InputAdornment position="end">
-                  <IconButton size="small" aria-label="Clear movie search" onClick={() => setKeyword('')}>
+                  <IconButton
+                    size="small"
+                    aria-label="Clear movie search"
+                    onClick={() => setKeyword('')}
+                  >
                     <CloseRounded fontSize="small" />
                   </IconButton>
                 </InputAdornment>
@@ -146,14 +182,18 @@ export function FamilyLibrary({
             labelId="library-family-filter-label"
             label="Families"
             value={familyFilter}
-            renderValue={(selected) => selected.length === 0
-              ? 'All families'
-              : `${selected.length} ${selected.length === 1 ? 'family' : 'families'}`}
-            onChange={(event) => setFamilyFilter(
-              typeof event.target.value === 'string'
-                ? event.target.value.split(',')
-                : event.target.value,
-            )}
+            renderValue={(selected) =>
+              selected.length === 0
+                ? 'All families'
+                : `${selected.length} ${selected.length === 1 ? 'family' : 'families'}`
+            }
+            onChange={(event) =>
+              setFamilyFilter(
+                typeof event.target.value === 'string'
+                  ? event.target.value.split(',')
+                  : event.target.value,
+              )
+            }
           >
             {library.families.map((family) => (
               <MenuItem key={family.id} value={family.id}>
@@ -164,32 +204,53 @@ export function FamilyLibrary({
           </Select>
         </FormControl>
         <Tooltip title="Refresh library">
-          <IconButton aria-label="Refresh library" onClick={() => void library.refresh()}>
+          <IconButton
+            aria-label="Refresh library"
+            onClick={() => void library.refresh()}
+          >
             <RefreshRounded />
           </IconButton>
         </Tooltip>
       </section>
 
       {library.loading ? (
-        <div className="p-12 text-center"><CircularProgress aria-label="Loading family library" /></div>
+        <div className="p-12 text-center">
+          <CircularProgress aria-label="Loading family library" />
+        </div>
       ) : (
         <>
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg font-semibold">Movies</h2>
-            <span className="numeric-value text-sm text-(--text-secondary)">{visibleMovies.length}</span>
+            <span className="numeric-value text-sm text-(--text-secondary)">
+              {visibleMovies.length}
+            </span>
           </div>
           {visibleMovies.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-(--border) p-10 text-center">
-              <MovieOutlined sx={{ fontSize: 42 }} className="text-(--text-secondary)" />
-              <p className="mt-2 font-medium">{movies.length ? 'No movies match these filters.' : 'Your library is ready for its first movie.'}</p>
+              <MovieOutlined
+                sx={{ fontSize: 42 }}
+                className="text-(--text-secondary)"
+              />
+              <p className="mt-2 font-medium">
+                {movies.length
+                  ? 'No movies match these filters.'
+                  : 'Your library is ready for its first movie.'}
+              </p>
               {!movies.length && (
-                <PrimaryButton sx={{ mt: 2 }} startIcon={<AddRounded />} onClick={() => setAdding(true)}>
+                <PrimaryButton
+                  sx={{ mt: 2 }}
+                  startIcon={<AddRounded />}
+                  onClick={() => setAdding(true)}
+                >
                   Add movie
                 </PrimaryButton>
               )}
             </div>
           ) : (
-            <ul className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6" aria-label="Shared movie collection">
+            <ul
+              className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
+              aria-label="Shared movie collection"
+            >
               {visibleMovies.map((movie) => {
                 const poster = moviePosterUrl(movie.posterPath);
                 return (
@@ -205,36 +266,55 @@ export function FamilyLibrary({
                             className="object-cover"
                           />
                         ) : (
-                          <MovieOutlined className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-(--text-secondary)" sx={{ fontSize: 54 }} />
+                          <MovieOutlined
+                            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-(--text-secondary)"
+                            sx={{ fontSize: 54 }}
+                          />
                         )}
                       </div>
-                      <h3 className="mt-2 truncate text-sm font-semibold" title={movie.title}>{movie.title}</h3>
+                      <h3
+                        className="mt-2 truncate text-sm font-semibold"
+                        title={movie.title}
+                      >
+                        {movie.title}
+                      </h3>
                       <div className="mt-1 flex items-center gap-1">
                         {movieReleaseYear(movie.releaseDate) && (
-                          <span className="numeric-value mr-1 text-xs text-(--text-secondary)">{movieReleaseYear(movie.releaseDate)}</span>
+                          <span className="numeric-value mr-1 text-xs text-(--text-secondary)">
+                            {movieReleaseYear(movie.releaseDate)}
+                          </span>
                         )}
                       </div>
                       <div className="mt-2 flex flex-col items-start gap-1">
-                        {movie.owners.flatMap((owner) => owner.copies.map((copy) => {
-                          const loan = activeMovieLoan(copy);
-                          const ownerLabel = owner.id === familyId ? 'Ours' : owner.name;
-                          return (
-                            <Chip
-                              key={copy.libraryMovieId}
-                              clickable
-                              size="small"
-                              color={loan ? 'warning' : 'default'}
-                              variant={loan ? 'filled' : 'outlined'}
-                              label={`${ownerLabel} · ${movieMediaFormatLabel(copy.mediaFormat)} · ${loan ? `With ${loan.borrower_family_name}` : 'Available'}`}
-                              sx={{ maxWidth: '100%', height: 24, fontSize: 10 }}
-                              onClick={() => setSelectedCopy({
-                                movieId: movie.tmdbMovieId,
-                                ownerId: owner.id,
-                                copyId: copy.libraryMovieId,
-                              })}
-                            />
-                          );
-                        }))}
+                        {movie.owners.flatMap((owner) =>
+                          owner.copies.map((copy) => {
+                            const loan = activeMovieLoan(copy);
+                            const ownerLabel =
+                              owner.id === familyId ? 'Ours' : owner.name;
+                            return (
+                              <Chip
+                                key={copy.libraryMovieId}
+                                clickable
+                                size="small"
+                                color={loan ? 'warning' : 'default'}
+                                variant={loan ? 'filled' : 'outlined'}
+                                label={`${ownerLabel} · ${movieMediaFormatLabel(copy.mediaFormat)} · ${loan ? `With ${loan.borrower_family_name}` : 'Available'}`}
+                                sx={{
+                                  maxWidth: '100%',
+                                  height: 24,
+                                  fontSize: 10,
+                                }}
+                                onClick={() =>
+                                  setSelectedCopy({
+                                    movieId: movie.tmdbMovieId,
+                                    ownerId: owner.id,
+                                    copyId: copy.libraryMovieId,
+                                  })
+                                }
+                              />
+                            );
+                          }),
+                        )}
                       </div>
                     </article>
                   </li>
@@ -245,10 +325,21 @@ export function FamilyLibrary({
         </>
       )}
 
-      <footer aria-label="Movie data credits" className="mt-4 border-t border-(--border) pt-4 text-xs text-(--text-secondary)">
+      <footer
+        aria-label="Movie data credits"
+        className="mt-4 border-t border-(--border) pt-4 text-xs text-(--text-secondary)"
+      >
         Movie data and artwork provided by{' '}
-        <a className="font-semibold underline" href="https://www.themoviedb.org" target="_blank" rel="noreferrer">TMDB</a>.
-        {' '}This product uses the TMDB API but is not endorsed or certified by TMDB.
+        <a
+          className="font-semibold underline"
+          href="https://www.themoviedb.org"
+          target="_blank"
+          rel="noreferrer"
+        >
+          TMDB
+        </a>
+        . This product uses the TMDB API but is not endorsed or certified by
+        TMDB.
       </footer>
 
       {adding && (
@@ -271,7 +362,10 @@ export function FamilyLibrary({
           currentFamilyId={familyId}
           onClose={() => setSelectedCopy(null)}
           onLend={async (borrowerFamilyId) => {
-            await library.lendMovie(selected.copy.libraryMovieId, borrowerFamilyId);
+            await library.lendMovie(
+              selected.copy.libraryMovieId,
+              borrowerFamilyId,
+            );
             setNotice(`${selected.movie.title} marked as borrowed.`);
           }}
           onReturn={async (loanId) => {
@@ -281,7 +375,9 @@ export function FamilyLibrary({
           onRemove={async () => {
             await library.removeMovie(selected.copy.libraryMovieId);
             setSelectedCopy(null);
-            setNotice(`${selected.movie.title} ${movieMediaFormatLabel(selected.copy.mediaFormat)} removed.`);
+            setNotice(
+              `${selected.movie.title} ${movieMediaFormatLabel(selected.copy.mediaFormat)} removed.`,
+            );
           }}
         />
       )}
@@ -310,8 +406,18 @@ export function FamilyLibrary({
           }}
         />
       )}
-      <Snackbar open={Boolean(notice)} autoHideDuration={4000} onClose={() => setNotice('')}>
-        <Alert severity="success" variant="filled" onClose={() => setNotice('')}>{notice}</Alert>
+      <Snackbar
+        open={Boolean(notice)}
+        autoHideDuration={4000}
+        onClose={() => setNotice('')}
+      >
+        <Alert
+          severity="success"
+          variant="filled"
+          onClose={() => setNotice('')}
+        >
+          {notice}
+        </Alert>
       </Snackbar>
     </div>
   );

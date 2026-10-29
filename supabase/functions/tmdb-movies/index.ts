@@ -39,14 +39,11 @@ Deno.serve(async (request: Request) => {
     const action = body.action
     if (action === 'search') {
       const query = readQuery(body.query)
-      const releaseYear = readOptionalYear(body.releaseYear)
       const url = new URL(`${TMDB_API_URL}/search/movie`)
       url.searchParams.set('query', query)
       url.searchParams.set('include_adult', 'false')
       url.searchParams.set('language', 'en-US')
       url.searchParams.set('page', '1')
-      if (releaseYear) url.searchParams.set('year', String(releaseYear))
-
       const payload = await fetchTmdb(url)
       const results = isRecord(payload) && Array.isArray(payload.results)
         ? payload.results
@@ -181,14 +178,6 @@ function readQuery(value: unknown) {
     throw new PublicError('Enter between 2 and 120 characters to search.', 400)
   }
   return value.trim()
-}
-
-function readOptionalYear(value: unknown) {
-  if (value === undefined || value === null || value === '') return null
-  if (!Number.isInteger(value) || Number(value) < 1870 || Number(value) > 2100) {
-    throw new PublicError('The release year is invalid.', 400)
-  }
-  return Number(value)
 }
 
 function readMovieId(value: unknown) {

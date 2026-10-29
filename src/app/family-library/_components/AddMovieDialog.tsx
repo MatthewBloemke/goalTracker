@@ -1,8 +1,8 @@
 'use client';
 
 import Image from 'next/image';
-import { useRef, useState } from 'react';
-import { AddRounded, MovieOutlined, PhotoCameraRounded, SearchRounded, UploadFileRounded } from '@mui/icons-material';
+import { useState } from 'react';
+import { AddRounded, MovieOutlined, SearchRounded } from '@mui/icons-material';
 import {
   Alert,
   Dialog,
@@ -28,7 +28,6 @@ import {
   type TmdbMovieSearchResult,
 } from '../_lib/family-library';
 import type { MovieMediaFormat } from '@/types';
-import { prepareMovieCaseImage } from '../_lib/movie-case-image';
 
 export function AddMovieDialog({
   ownedCopyKeys,
@@ -40,39 +39,25 @@ export function AddMovieDialog({
   onAdded: (title: string) => Promise<void>;
 }) {
   const { supabase } = useSupabase();
-  const cameraInput = useRef<HTMLInputElement>(null);
-  const uploadInput = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
   const [mediaFormat, setMediaFormat] = useState<MovieMediaFormat>('dvd');
   const [results, setResults] = useState<TmdbMovieSearchResult[]>([]);
   const [searched, setSearched] = useState(false);
   const [searching, setSearching] = useState(false);
-  const [scanning, setScanning] = useState(false);
   const [addingId, setAddingId] = useState<number | null>(null);
   const [error, setError] = useState('');
-  const [scanNotice, setScanNotice] = useState('');
 
-  const search = async (searchQuery = query, releaseYear?: number | null) => {
+  const search = async (searchQuery = query) => {
     if (searchQuery.trim().length < 2 || searching) return;
     setSearching(true);
     setError('');
     setSearched(false);
     try {
       const { data, error: functionError } = await supabase.functions.invoke('tmdb-movies', {
-        body: { action: 'search', query: searchQuery.trim(), releaseYear: releaseYear ?? null },
+        body: { action: 'search', query: searchQuery.trim() },
       });
       if (functionError) throw new Error(await readFunctionError(functionError, 'Movie search failed.'));
-      let movies = parseMovieSearchResults(data);
-      // A case may print the home-video edition year instead of the theatrical
-      // release year. Fall back to title-only search instead of hiding a match.
-      if (movies.length === 0 && releaseYear) {
-        const fallback = await supabase.functions.invoke('tmdb-movies', {
-          body: { action: 'search', query: searchQuery.trim() },
-        });
-        if (fallback.error) throw new Error(await readFunctionError(fallback.error, 'Movie search failed.'));
-        movies = parseMovieSearchResults(fallback.data);
-      }
-      setResults(movies);
+      setResults(parseMovieSearchResults(data));
       setSearched(true);
     } catch (searchError) {
       setError(searchError instanceof Error ? searchError.message : 'Movie search failed.');
@@ -81,42 +66,12 @@ export function AddMovieDialog({
     }
   };
 
-  const scan = async (file: File) => {
-    if (scanning) return;
-    setScanning(true);
-    setError('');
-    setScanNotice('');
-    try {
-      const image = await prepareMovieCaseImage(file);
-      const { data, error: functionError } = await supabase.functions.invoke('identify-movie-case', {
-        body: { image },
-      });
-      if (functionError) throw new Error(await readFunctionError(functionError, 'Case scanning failed.'));
-      const identification = parseIdentification(data);
-      if (!identification.title) {
-        throw new Error('The title was not clear enough to search. Try a straight-on photo of the front cover or spine.');
-      }
-      setQuery(identification.title);
-      setScanNotice(
-        identification.requiresReview
-          ? `Possible match: “${identification.title}.” Choose the correct movie below.`
-          : `Case recognized as “${identification.title}.” Confirm the correct edition below.`,
-      );
-      await search(identification.title, identification.releaseYear);
-    } catch (scanError) {
-      setError(scanError instanceof Error ? scanError.message : 'Case scanning failed.');
-    } finally {
-      setScanning(false);
-    }
-  };
-
-  const busy = searching || scanning || addingId !== null;
+  const busy = searching || addingId !== null;
   return (
     <Dialog open fullWidth maxWidth="md" onClose={() => !busy && onClose()}>
       <DialogTitle>Add a movie</DialogTitle>
       <DialogContent className="flex flex-col gap-4">
         {error && <Alert severity="error">{error}</Alert>}
-        {scanNotice && <Alert severity="info">{scanNotice}</Alert>}
         <div>
           <p className="mb-2 text-sm font-medium">Physical format</p>
           <ToggleButtonGroup
@@ -172,44 +127,6 @@ export function AddMovieDialog({
             }}
           />
         </div>
-        <div className="flex flex-wrap gap-2">
-          <SecondaryButton
-            startIcon={<PhotoCameraRounded />}
-            loading={scanning}
-            disabled={busy && !scanning}
-            onClick={() => cameraInput.current?.click()}
-          >
-            Scan case
-          </SecondaryButton>
-          <SecondaryButton
-            startIcon={<UploadFileRounded />}
-            disabled={busy}
-            onClick={() => uploadInput.current?.click()}
-          >
-            Upload photo
-          </SecondaryButton>
-          <input
-            ref={cameraInput}
-            hidden
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            capture="environment"
-            aria-label="Take a photo of a movie case"
-            onChange={(event) => void handleFile(event, scan)}
-          />
-          <input
-            ref={uploadInput}
-            hidden
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            aria-label="Upload a photo of a movie case"
-            onChange={(event) => void handleFile(event, scan)}
-          />
-        </div>
-        <p className="text-xs text-(--text-secondary)">
-          Case photos are processed temporarily and are not saved. You always choose the TMDB result before adding it.
-        </p>
-
         {searched && results.length === 0 && (
           <div className="rounded-2xl border border-(--border) p-6 text-center text-sm text-(--text-secondary)">
             No movies found. Try the title without the edition or format.
@@ -275,34 +192,6 @@ export function AddMovieDialog({
       </DialogActions>
     </Dialog>
   );
-}
-
-async function handleFile(
-  event: React.ChangeEvent<HTMLInputElement>,
-  scan: (file: File) => Promise<void>,
-) {
-  const file = event.target.files?.[0];
-  event.target.value = '';
-  if (file) await scan(file);
-}
-
-function parseIdentification(value: unknown) {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new Error('Case scanning returned an invalid response.');
-  }
-  const result = value as Record<string, unknown>;
-  if ((result.title !== null && typeof result.title !== 'string')
-    || (result.releaseYear !== null && !Number.isInteger(result.releaseYear))
-    || typeof result.confidence !== 'number'
-    || typeof result.requiresReview !== 'boolean') {
-    throw new Error('Case scanning returned an invalid response.');
-  }
-  return result as unknown as {
-    title: string | null;
-    releaseYear: number | null;
-    confidence: number;
-    requiresReview: boolean;
-  };
 }
 
 async function readFunctionError(error: unknown, fallback: string) {

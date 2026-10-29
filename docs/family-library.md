@@ -33,53 +33,16 @@ The `tmdb-movies` Edge Function owns all TMDB calls, so this token is never sent
 
 The Family Library page includes TMDB attribution and the required notice. Review TMDB’s current attribution and logo requirements before a public launch.
 
-## Movie-case AI setup
+## Adding movies
 
-Case scanning reuses the same OpenAI configuration as receipt and recipe analysis:
-
-- `OPENAI_API_KEY`
-- `OPENAI_RECEIPT_MODEL` (optional; defaults to `gpt-4o-mini`)
-
-No new OpenAI key is needed. The image is resized in the browser, sent directly to the Edge Function as a temporary request body, and never stored.
-
-Case scanning is deny-by-default. Grant it to an approved user with conservative hourly/daily limits:
-
-```sql
-insert into public.feature_access_grants (
-  user_id,
-  feature,
-  hourly_limit,
-  daily_limit,
-  revoked_at
-)
-values (
-  'USER_UUID_HERE'::uuid,
-  'movie_case_analysis',
-  5,
-  15,
-  null
-)
-on conflict (user_id, feature) do update
-set hourly_limit = excluded.hourly_limit,
-    daily_limit = excluded.daily_limit,
-    revoked_at = null;
-```
-
-Revoke it with:
-
-```sql
-update public.feature_access_grants
-set revoked_at = now()
-where user_id = 'USER_UUID_HERE'::uuid
-  and feature = 'movie_case_analysis';
-```
+Search for a movie by title, choose the correct TMDB result and physical format, then add it to the family collection. Searches go through the authenticated `tmdb-movies` Edge Function, which keeps the TMDB token off the client. Searching does not save anything until a result is explicitly added.
 
 ## Deploy
 
 ```powershell
 npx supabase db push
 npx supabase functions deploy tmdb-movies
-npx supabase functions deploy identify-movie-case
+npx supabase functions delete identify-movie-case
 ```
 
 Then deploy the web application so the new page and TMDB image configuration are live.
@@ -96,7 +59,5 @@ Then deploy the web application so the new page and TMDB image configuration are
 8. In Family A, mark the Blu-ray returned. Verify it is available again and the history keeps both borrowed and returned dates.
 9. In Family B, add the same movie. Verify one poster lists both families and their individual formats/statuses.
 10. Verify Family A still cannot see Family B’s budget, meals, recipes, tasks, debts, or main family invite code.
-11. With an approved AI grant, use **Scan case** on a phone. Confirm the rear camera opens, a likely title is found, and the user must choose a TMDB result and format before saving.
-12. Scan a blurry or unrelated image. Confirm it returns an actionable error or uncertain match and saves nothing.
-13. Use **Upload photo** with a file over 10 MB or an unsupported type. Confirm it is rejected before the OpenAI request.
-14. Leave the circle as Family B. Confirm Family B’s own movies remain, while Family A’s movies disappear.
+11. Search for a title but close the dialog without adding it. Confirm the search result is not saved.
+12. Leave the circle as Family B. Confirm Family B’s own movies remain, while Family A’s movies disappear.

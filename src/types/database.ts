@@ -645,24 +645,6 @@ export type Database = {
           },
         ]
       }
-      movie_case_analysis_requests: {
-        Row: {
-          created_at: string
-          id: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       movie_loans: {
         Row: {
           borrowed_at: string
@@ -908,10 +890,6 @@ export type Database = {
         Returns: boolean
       }
       consume_receipt_analysis_quota: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
-      consume_movie_case_analysis_quota: {
         Args: Record<PropertyKey, never>
         Returns: Json
       }
