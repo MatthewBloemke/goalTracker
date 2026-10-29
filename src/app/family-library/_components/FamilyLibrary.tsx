@@ -264,26 +264,26 @@ export function FamilyLibrary({
                 return (
                   <li key={movie.tmdbMovieId} className="group min-w-0">
                     <article
-                      className="relative -m-2 h-full cursor-pointer rounded-3xl border border-transparent p-2 transition hover:border-(--border) hover:bg-(--surface)"
+                      className="relative h-full cursor-pointer"
                     >
                       <button
                         type="button"
                         aria-label={`Open ${movie.title} details`}
-                        className="absolute inset-0 z-0 rounded-3xl outline-none focus-visible:ring-2 focus-visible:ring-(--accent-green)"
+                        className="absolute inset-0 z-0 cursor-pointer rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-(--accent-green)"
                         onClick={() => {
                           if (preferred) {
                             openCopy(preferred.owner.id, preferred.copy.libraryMovieId);
                           }
                         }}
                       />
-                      <div className="pointer-events-none relative z-10 aspect-[2/3] overflow-hidden rounded-2xl border border-(--border) bg-(--surface-2) shadow-sm transition group-hover:-translate-y-1 group-hover:shadow-lg">
+                      <div className="pointer-events-none relative z-10 aspect-[2/3] cursor-pointer overflow-hidden rounded-2xl border border-(--border) bg-(--surface-2) shadow-sm transition group-hover:-translate-y-1 group-hover:shadow-lg">
                         {poster ? (
                           <Image
                             src={poster}
                             alt={`${movie.title} poster`}
                             fill
                             sizes="(max-width: 640px) 46vw, (max-width: 900px) 30vw, (max-width: 1200px) 23vw, 16vw"
-                            className="object-cover"
+                            className="cursor-pointer object-cover"
                           />
                         ) : (
                           <MovieOutlined
