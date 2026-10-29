@@ -515,6 +515,151 @@ export type Database = {
         }
         Relationships: []
       }
+      family_movies: {
+        Row: {
+          backdrop_path: string | null
+          created_at: string
+          created_by: string | null
+          family_id: string
+          genres: string[]
+          id: string
+          original_title: string
+          overview: string
+          poster_path: string | null
+          release_date: string | null
+          title: string
+          tmdb_movie_id: number
+          updated_at: string
+        }
+        Insert: {
+          backdrop_path?: string | null
+          created_at?: string
+          created_by?: string | null
+          family_id: string
+          genres?: string[]
+          id?: string
+          original_title?: string
+          overview?: string
+          poster_path?: string | null
+          release_date?: string | null
+          title: string
+          tmdb_movie_id: number
+          updated_at?: string
+        }
+        Update: {
+          backdrop_path?: string | null
+          created_at?: string
+          created_by?: string | null
+          family_id?: string
+          genres?: string[]
+          id?: string
+          original_title?: string
+          overview?: string
+          poster_path?: string | null
+          release_date?: string | null
+          title?: string
+          tmdb_movie_id?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_movies_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      library_circle_families: {
+        Row: {
+          circle_id: string
+          family_id: string
+          joined_at: string
+          joined_by: string | null
+        }
+        Insert: {
+          circle_id: string
+          family_id: string
+          joined_at?: string
+          joined_by?: string | null
+        }
+        Update: {
+          circle_id?: string
+          family_id?: string
+          joined_at?: string
+          joined_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_circle_families_circle_id_fkey"
+            columns: ["circle_id"]
+            isOneToOne: false
+            referencedRelation: "library_circles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_circle_families_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      library_circles: {
+        Row: {
+          created_at: string
+          created_by_family_id: string
+          created_by_user_id: string | null
+          id: string
+          invite_code: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by_family_id: string
+          created_by_user_id?: string | null
+          id?: string
+          invite_code?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by_family_id?: string
+          created_by_user_id?: string | null
+          id?: string
+          invite_code?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_circles_created_by_family_id_fkey"
+            columns: ["created_by_family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      movie_case_analysis_requests: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -708,6 +853,26 @@ export type Database = {
       consume_receipt_analysis_quota: {
         Args: Record<PropertyKey, never>
         Returns: Json
+      }
+      consume_movie_case_analysis_quota: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      create_library_circle: {
+        Args: { circle_name: string }
+        Returns: string
+      }
+      join_library_circle: {
+        Args: { invite_code_input: string }
+        Returns: string
+      }
+      get_library_families: {
+        Args: Record<PropertyKey, never>
+        Returns: { id: string; name: string }[]
+      }
+      leave_library_circle: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       copy_budget_month: {
         Args: { source_budget_id: string; target_month: string }

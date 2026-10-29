@@ -29,15 +29,14 @@ test('home is a compact two-column launcher with all four destinations', () => {
   expect(screen.queryByText(/Open module/)).not.toBeInTheDocument();
 });
 
-test('only the unfinished library has a short, accessible availability note', () => {
+test('all four launched modules are available', () => {
   render(<PortalHomePage />);
-  expect(screen.getAllByText('Coming soon')).toHaveLength(1);
-  expect(
-    screen.getByRole('link', { name: 'Family Library' }),
-  ).toHaveAccessibleDescription('Coming soon');
-  expect(screen.getByRole('link', { name: 'Budget' })).not.toHaveAttribute(
-    'aria-describedby',
-  );
+  expect(screen.queryByText('Coming soon')).not.toBeInTheDocument();
+  for (const portalModule of portalModules) {
+    expect(screen.getByRole('link', { name: portalModule.name })).not.toHaveAttribute(
+      'aria-describedby',
+    );
+  }
   expect(screen.queryByText('Foundation ready')).not.toBeInTheDocument();
 });
 

@@ -40,7 +40,7 @@ export const portalModules: PortalModule[] = [
     eyebrow: 'Shared collection',
     accent: '#5b5ff5',
     icon: 'F',
-    status: 'coming-soon',
+    status: 'available',
   },
   {
     href: '/task-planner',

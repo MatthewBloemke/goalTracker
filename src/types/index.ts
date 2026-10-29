@@ -22,6 +22,10 @@ export type BudgetTransactionSplit =
   Database['public']['Tables']['budget_transaction_splits']['Row'];
 export type TaskList = Database['public']['Tables']['task_lists']['Row'];
 export type TaskItem = Database['public']['Tables']['task_items']['Row'];
+export type LibraryCircle = Database['public']['Tables']['library_circles']['Row'];
+export type LibraryCircleFamily =
+  Database['public']['Tables']['library_circle_families']['Row'];
+export type FamilyMovie = Database['public']['Tables']['family_movies']['Row'];
 
 // INSERT TYPES — for writing to the DB
 export type InsertLoan = Database['public']['Tables']['loans']['Insert'];
