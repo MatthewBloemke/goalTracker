@@ -2,13 +2,12 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import type { User, Session, SupabaseClient } from '@supabase/supabase-js';
+import type { User, SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types';
 
 interface SupabaseContextType {
   supabase: SupabaseClient<Database>;
   user: User | null;
-  session: Session | null;
   loading: boolean;
 }
 
@@ -19,21 +18,18 @@ const SupabaseContext = createContext<SupabaseContextType | undefined>(
 export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const [supabase] = useState(() => createClient());
   const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const initializeAuth = async () => {
       const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      const {
         data: { user },
       } = await supabase.auth.getUser();
 
-      setSession(session);
-      setUser(user ?? null);
+      const nextUser = user ?? null;
+      setUser((currentUser) =>
+        currentUser?.id === nextUser?.id ? currentUser : nextUser,
+      );
       setLoading(false);
     };
 
@@ -42,8 +38,10 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+      const nextUser = session?.user ?? null;
+      setUser((currentUser) =>
+        currentUser?.id === nextUser?.id ? currentUser : nextUser,
+      );
       setLoading(false);
     });
 
@@ -51,7 +49,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   }, [supabase]);
 
   return (
-    <SupabaseContext.Provider value={{ supabase, user, session, loading }}>
+    <SupabaseContext.Provider value={{ supabase, user, loading }}>
       {children}
     </SupabaseContext.Provider>
   );

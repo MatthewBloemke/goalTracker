@@ -215,6 +215,15 @@ test('users without a family are sent to required onboarding before page content
   ).not.toBeInTheDocument();
 });
 
+test('waits for the family lookup before redirecting from the requested page', () => {
+  mockPathname = '/';
+  mockFamily = null;
+  mockFamilyLoading = true;
+  render(shell);
+  expect(screen.getByRole('status')).toHaveTextContent('Loading your family...');
+  expect(mockReplace).not.toHaveBeenCalled();
+});
+
 test('family onboarding keeps create/join content available with only a sign-out action', () => {
   mockPathname = '/family';
   mockFamily = null;

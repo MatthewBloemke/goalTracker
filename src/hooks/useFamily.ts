@@ -12,24 +12,28 @@ import type {
 } from '@/types';
 
 export function useFamilyState() {
-  const { supabase, user } = useSupabase();
+  const { supabase, user, loading: authLoading } = useSupabase();
+  const userId = user?.id ?? null;
   const [family, setFamily] = useState<Family | null>(null);
   const [members, setMembers] = useState<FamilyMemberWithProfile[]>([]);
   const [settings, setSettings] = useState<FamilySettings | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [resolvedUserId, setResolvedUserId] = useState<string | null>(null);
   const requestIdRef = useRef(0);
 
   const fetchFamily = useCallback(
     async (showLoading = false) => {
       const requestId = ++requestIdRef.current;
 
-      if (!user) {
+      if (!userId) {
         setFamily(null);
         setMembers([]);
         setSettings(null);
         setIsAdmin(false);
+        setError(null);
+        setResolvedUserId(null);
         setLoading(false);
         return;
       }
@@ -41,7 +45,7 @@ export function useFamilyState() {
         const { data: rawMember, error: memberError } = await supabase
           .from('family_members')
           .select('*, families(*)')
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .maybeSingle();
 
         if (requestId !== requestIdRef.current) return;
@@ -110,19 +114,23 @@ export function useFamilyState() {
         setSettings(null);
         setIsAdmin(false);
       } finally {
-        if (requestId === requestIdRef.current) setLoading(false);
+        if (requestId === requestIdRef.current) {
+          setResolvedUserId(userId);
+          setLoading(false);
+        }
       }
     },
-    [supabase, user],
+    [supabase, userId],
   );
 
   useEffect(() => {
+    if (authLoading) return;
     void Promise.resolve().then(() => fetchFamily(true));
-  }, [fetchFamily]);
+  }, [authLoading, fetchFamily]);
 
   // Realtime: watch this user's membership plus changes to the active family.
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
 
     let channel = supabase
       .channel('family-members-realtime')
@@ -132,7 +140,7 @@ export function useFamilyState() {
           event: '*',
           schema: 'public',
           table: 'family_members',
-          filter: `user_id=eq.${user.id}`,
+          filter: `user_id=eq.${userId}`,
         },
         () => fetchFamily(),
       );
@@ -158,11 +166,11 @@ export function useFamilyState() {
       window.removeEventListener('focus', refreshOnFocus);
       supabase.removeChannel(channel);
     };
-  }, [supabase, user, family, fetchFamily]);
+  }, [supabase, userId, family, fetchFamily]);
 
   const createFamily = useCallback(
     async (name: string) => {
-      if (!user) return { success: false, error: 'Not authenticated' };
+      if (!userId) return { success: false, error: 'Not authenticated' };
       const { error: createError } = await supabase.rpc(
         'create_family_for_current_user',
         { family_name: name },
@@ -174,12 +182,12 @@ export function useFamilyState() {
       await fetchFamily();
       return { success: true };
     },
-    [supabase, user, fetchFamily],
+    [supabase, userId, fetchFamily],
   );
 
   const joinFamily = useCallback(
     async (inviteCode: string) => {
-      if (!user) return { success: false };
+      if (!userId) return { success: false };
       const { error: joinError } = await supabase.rpc(
         'join_family_with_invite',
         { invite_code_input: inviteCode },
@@ -190,7 +198,7 @@ export function useFamilyState() {
       await fetchFamily();
       return { success: true };
     },
-    [supabase, user, fetchFamily],
+    [supabase, userId, fetchFamily],
   );
 
   const updateStrategy = useCallback(
@@ -244,11 +252,11 @@ export function useFamilyState() {
     success: boolean;
     error?: string;
   }> => {
-    if (!user || !family) {
+    if (!userId || !family) {
       return { success: false, error: 'You are not currently in a family.' };
     }
 
-    const currentMember = members.find((member) => member.user_id === user.id);
+    const currentMember = members.find((member) => member.user_id === userId);
     if (!currentMember) {
       return { success: false, error: 'Your family membership was not found.' };
     }
@@ -265,7 +273,7 @@ export function useFamilyState() {
       .from('family_members')
       .delete()
       .eq('id', currentMember.id)
-      .eq('user_id', user.id);
+      .eq('user_id', userId);
 
     if (leaveError) {
       return { success: false, error: leaveError.message };
@@ -273,7 +281,7 @@ export function useFamilyState() {
 
     await fetchFamily();
     return { success: true };
-  }, [family, fetchFamily, members, supabase, user]);
+  }, [family, fetchFamily, members, supabase, userId]);
 
   const promoteMember = useCallback(
     async (memberId: string): Promise<{ success: boolean }> => {
@@ -287,13 +295,15 @@ export function useFamilyState() {
     [supabase, fetchFamily],
   );
 
+  const stateMatchesUser = resolvedUserId === userId;
+
   return {
-    family,
-    members,
-    settings,
-    isAdmin,
-    loading,
-    error,
+    family: stateMatchesUser ? family : null,
+    members: stateMatchesUser ? members : [],
+    settings: stateMatchesUser ? settings : null,
+    isAdmin: stateMatchesUser ? isAdmin : false,
+    loading: authLoading || loading || !stateMatchesUser,
+    error: stateMatchesUser ? error : null,
     createFamily,
     joinFamily,
     leaveFamily,
