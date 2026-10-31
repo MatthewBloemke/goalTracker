@@ -213,7 +213,7 @@ test('collapse/expand preserves draft allocations and collapsed group totals', (
   expect(input).not.toBeVisible();
   expect(
     within(screen.getByRole('button', { name: 'Expand Food group' })).getByText(
-      '$250.00',
+      '$200.00',
     ),
   ).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Expand Food group' }));
@@ -224,6 +224,41 @@ test('collapse/expand preserves draft allocations and collapsed group totals', (
   expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Expand all' }));
   expect(screen.getAllByRole('spinbutton')).toHaveLength(3);
+});
+
+test('category tabs show one amount at a time with spending progress', () => {
+  render(<MonthlyBudgetPage />);
+
+  const tabs = screen.getByRole('tablist', { name: 'Category amount view' });
+  expect(within(tabs).getByRole('tab', { name: 'Planned' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  expect(screen.getAllByRole('spinbutton')).toHaveLength(3);
+  expect(
+    screen.getByRole('progressbar', { name: 'Groceries spending progress' }),
+  ).toHaveAttribute('aria-valuetext', '$0.00 spent of $250.00 available');
+  expect(
+    screen.getByRole('progressbar', { name: 'Car loan spending progress' }),
+  ).toHaveAttribute('aria-valuenow', '100');
+
+  fireEvent.click(within(tabs).getByRole('tab', { name: 'Spent' }));
+  expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
+  expect(screen.getByLabelText('Groceries spent amount')).toHaveTextContent(
+    '$0.00',
+  );
+  expect(screen.getByLabelText('Car loan spent amount')).toHaveTextContent(
+    '$200.00',
+  );
+
+  fireEvent.click(within(tabs).getByRole('tab', { name: 'Remaining' }));
+  expect(screen.getByLabelText('Groceries remaining amount')).toHaveTextContent(
+    '$250.00',
+  );
+  expect(screen.getByLabelText('Car loan remaining amount')).toHaveTextContent(
+    '$0.00',
+  );
+  expect(screen.getAllByRole('progressbar')).toHaveLength(3);
 });
 
 test('edit groups reveals category and group actions but protects synced debt categories', async () => {

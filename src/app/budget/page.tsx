@@ -11,8 +11,11 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
+import LinearProgress from '@mui/material/LinearProgress';
 import MenuItem from '@mui/material/MenuItem';
 import Popover from '@mui/material/Popover';
+import Tab from '@mui/material/Tab';
+import Tabs from '@mui/material/Tabs';
 import {
   AddRounded,
   ChevronLeftRounded,
@@ -47,12 +50,22 @@ import type {
   BudgetTransactionSplit,
 } from '@/types';
 
+type CategoryValueView = 'planned' | 'spent' | 'remaining';
+
+const CATEGORY_VALUE_LABELS: Record<CategoryValueView, string> = {
+  planned: 'Planned',
+  spent: 'Spent',
+  remaining: 'Remaining',
+};
+
 export default function MonthlyBudgetPage() {
   const { family, loading: familyLoading } = useFamily();
   const [month, setMonth] = useState(() => toBudgetMonth(new Date()));
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [showGroupForm, setShowGroupForm] = useState(false);
   const [editingGroups, setEditingGroups] = useState(false);
+  const [categoryValueView, setCategoryValueView] =
+    useState<CategoryValueView>('planned');
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
     new Set(),
   );
@@ -256,11 +269,28 @@ export default function MonthlyBudgetPage() {
               </div>
             ) : (
               <div className="rounded-xl border border-(--border) bg-(--surface)">
-                <div className="hidden grid-cols-[minmax(0,1fr)_130px_100px_120px] gap-3 border-b border-(--border) px-4 py-3 text-right text-xs text-(--text-secondary) sm:grid">
-                  <span className="text-left">Category</span>
-                  <span>Planned</span>
-                  <span>Spent</span>
-                  <span>Remaining</span>
+                <div className="border-b border-(--border) px-2 sm:px-4">
+                  <Tabs
+                    value={categoryValueView}
+                    onChange={(_event, nextView: CategoryValueView) =>
+                      setCategoryValueView(nextView)
+                    }
+                    aria-label="Category amount view"
+                    variant="fullWidth"
+                    sx={{
+                      minHeight: 52,
+                      '& .MuiTab-root': {
+                        minHeight: 52,
+                        fontSize: '1rem',
+                        fontWeight: 600,
+                        textTransform: 'none',
+                      },
+                    }}
+                  >
+                    <Tab value="planned" label="Planned" />
+                    <Tab value="spent" label="Spent" />
+                    <Tab value="remaining" label="Remaining" />
+                  </Tabs>
                 </div>
                 {summary.groups.map((groupSnapshot) => (
                   <BudgetGroupCard
@@ -268,6 +298,7 @@ export default function MonthlyBudgetPage() {
                     snapshot={groupSnapshot}
                     disabled={mutating}
                     editing={editingGroups}
+                    valueView={categoryValueView}
                     collapsed={collapsedGroups.has(groupSnapshot.group.id)}
                     onToggle={() =>
                       setCollapsedGroups((current) => {
@@ -650,6 +681,7 @@ function BudgetGroupCard({
   snapshot,
   disabled,
   editing,
+  valueView,
   collapsed,
   onToggle,
   onAllocationChange,
@@ -662,6 +694,7 @@ function BudgetGroupCard({
   >['groups'][number];
   disabled: boolean;
   editing: boolean;
+  valueView: CategoryValueView;
   collapsed: boolean;
   onToggle: () => void;
   onAllocationChange: (categoryId: string, amount: number) => Promise<boolean>;
@@ -684,7 +717,7 @@ function BudgetGroupCard({
           aria-expanded={!collapsed}
           aria-controls={`budget-group-${group.id}`}
           onClick={onToggle}
-          className="grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_130px_100px_120px]"
+          className="grid-cols-[minmax(0,1fr)_auto] gap-4 px-4 py-3"
           sx={{
             display: 'grid',
             width: '100%',
@@ -699,7 +732,7 @@ function BudgetGroupCard({
             },
           }}
         >
-          <span className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+          <span className="flex min-w-0 items-center gap-2 text-base font-semibold">
             <ExpandMoreRounded
               fontSize="small"
               sx={{
@@ -709,27 +742,17 @@ function BudgetGroupCard({
             />
             <span className="truncate">{group.name}</span>
           </span>
-          <span className="numeric-value hidden text-right text-sm sm:block">
-            {collapsed ? formatCurrency(snapshot.planned) : ''}
-          </span>
-          <span className="numeric-value hidden text-right text-sm text-(--text-secondary) sm:block">
-            {collapsed ? formatCurrency(snapshot.spent) : ''}
-          </span>
           <span
-            className="numeric-value text-right text-sm"
+            className="numeric-value text-right text-base font-semibold"
+            aria-label={`${group.name} ${CATEGORY_VALUE_LABELS[valueView].toLowerCase()} total`}
             style={{
               color:
-                snapshot.remaining < 0
+                valueView === 'remaining' && snapshot.remaining < 0
                   ? 'var(--accent-red)'
                   : 'var(--text-secondary)',
             }}
           >
-            {collapsed ? (
-              <>
-                {formatCurrency(snapshot.remaining)}
-                <span className="ml-1 text-xs sm:hidden">left</span>
-              </>
-            ) : null}
+            {formatCurrency(snapshot[valueView])}
           </span>
         </ButtonBase>
       </h3>
@@ -741,6 +764,7 @@ function BudgetGroupCard({
               snapshot={categorySnapshot}
               disabled={disabled}
               editing={editing}
+              valueView={valueView}
               onAllocationChange={onAllocationChange}
               onDelete={onDeleteCategory}
             />
@@ -826,6 +850,7 @@ function CategoryRow({
   snapshot,
   disabled,
   editing,
+  valueView,
   onAllocationChange,
   onDelete,
 }: {
@@ -834,20 +859,33 @@ function CategoryRow({
   >['groups'][number]['categories'][number];
   disabled: boolean;
   editing: boolean;
+  valueView: CategoryValueView;
   onAllocationChange: (categoryId: string, amount: number) => Promise<boolean>;
   onDelete: (categoryId: string) => Promise<boolean>;
 }) {
   const [planned, setPlanned] = useState(String(snapshot.planned));
+  const progress =
+    snapshot.available > 0
+      ? Math.min(100, (snapshot.spent / snapshot.available) * 100)
+      : snapshot.spent > 0
+        ? 100
+        : 0;
+  const progressColor =
+    snapshot.spent > snapshot.available
+      ? 'var(--accent-red)'
+      : progress >= 80
+        ? 'var(--accent-amber)'
+        : 'var(--accent-green)';
 
   return (
     <div
       role="group"
       aria-label={`${snapshot.category.name} category`}
-      className="grid grid-cols-3 gap-x-3 gap-y-2 border-t border-(--border) px-4 py-2 sm:grid-cols-[minmax(0,1fr)_130px_100px_120px] sm:items-center"
+      className="grid grid-cols-[minmax(0,1fr)_minmax(120px,auto)] items-center gap-x-4 gap-y-3 border-t border-(--border) px-4 py-4 sm:px-5"
     >
-      <div className="col-span-3 min-w-0 sm:col-span-1">
+      <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-medium text-(--text-primary)">
+          <p className="truncate text-base font-medium text-(--text-primary) sm:text-lg">
             {snapshot.category.name}
           </p>
           {snapshot.paidThisMonth && (
@@ -874,10 +912,7 @@ function CategoryRow({
           </Button>
         )}
       </div>
-      <div>
-        <span className="mb-1 block text-xs text-(--text-secondary) sm:hidden">
-          Planned
-        </span>
+      {valueView === 'planned' ? (
         <AppTextField
           className="numeric-value"
           type="number"
@@ -908,38 +943,46 @@ function CategoryRow({
               '&:hover fieldset': { borderColor: 'divider' },
             },
             '& .MuiInputBase-input': {
-              fontSize: '0.875rem',
+              fontSize: '1.125rem',
+              fontWeight: 600,
               fontVariantNumeric: 'tabular-nums',
               textAlign: 'right',
               py: 1,
             },
           }}
         />
-      </div>
-      <div className="text-right text-sm">
-        <span className="mb-1 block text-xs text-(--text-secondary) sm:hidden">
-          Spent
-        </span>
-        <span className="numeric-value inline-block py-2 text-(--text-secondary)">
-          {formatCurrency(snapshot.spent)}
-        </span>
-      </div>
-      <div className="text-right text-sm">
-        <span className="mb-1 block text-xs text-(--text-secondary) sm:hidden">
-          Remaining
-        </span>
+      ) : (
         <span
-          className="numeric-value inline-block py-2 font-medium"
+          className="numeric-value inline-block py-2 text-right text-lg font-semibold"
+          aria-label={`${snapshot.category.name} ${CATEGORY_VALUE_LABELS[valueView].toLowerCase()} amount`}
           style={{
             color:
-              snapshot.remaining < 0
+              valueView === 'remaining' && snapshot.remaining < 0
                 ? 'var(--accent-red)'
-                : 'var(--text-primary)',
+                : valueView === 'spent'
+                  ? 'var(--text-secondary)'
+                  : 'var(--text-primary)',
           }}
         >
-          {formatCurrency(snapshot.remaining)}
+          {formatCurrency(snapshot[valueView])}
         </span>
-      </div>
+      )}
+      <LinearProgress
+        variant="determinate"
+        value={progress}
+        aria-label={`${snapshot.category.name} spending progress`}
+        aria-valuetext={`${formatCurrency(snapshot.spent)} spent of ${formatCurrency(snapshot.available)} available`}
+        sx={{
+          gridColumn: '1 / -1',
+          height: 8,
+          borderRadius: 999,
+          bgcolor: 'var(--surface-2)',
+          '& .MuiLinearProgress-bar': {
+            borderRadius: 999,
+            bgcolor: progressColor,
+          },
+        }}
+      />
     </div>
   );
 }
