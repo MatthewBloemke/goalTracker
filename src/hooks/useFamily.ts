@@ -201,6 +201,47 @@ export function useFamilyState() {
     [supabase, userId, fetchFamily],
   );
 
+  const updateFamilyName = useCallback(
+    async (name: string): Promise<{ success: boolean; error?: string }> => {
+      const trimmedName = name.trim();
+
+      if (!userId || !family) {
+        return { success: false, error: 'You are not currently in a family.' };
+      }
+      if (!isAdmin) {
+        return {
+          success: false,
+          error: 'Only family administrators can change the family name.',
+        };
+      }
+      if (trimmedName.length < 1 || trimmedName.length > 100) {
+        return {
+          success: false,
+          error: 'Family name must be between 1 and 100 characters.',
+        };
+      }
+
+      const { data: updatedFamily, error: updateError } = await supabase
+        .from('families')
+        .update({ name: trimmedName })
+        .eq('id', family.id)
+        .select('name')
+        .single();
+
+      if (updateError) {
+        return { success: false, error: updateError.message };
+      }
+
+      setFamily((currentFamily) =>
+        currentFamily
+          ? { ...currentFamily, name: updatedFamily.name }
+          : null,
+      );
+      return { success: true };
+    },
+    [family, isAdmin, supabase, userId],
+  );
+
   const updateStrategy = useCallback(
     async (strategy: SnowballStrategy) => {
       if (!settings) return;
@@ -306,6 +347,7 @@ export function useFamilyState() {
     error: stateMatchesUser ? error : null,
     createFamily,
     joinFamily,
+    updateFamilyName,
     leaveFamily,
     updateStrategy,
     updateExtraBudget,

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Button from '@mui/material/Button';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { useFamily } from '@/hooks/useFamily';
 import { useSupabase } from '@/components/providers/SupabaseProvider';
 import { AppTextField } from '@/components/ui/AppTextField';
@@ -19,16 +20,21 @@ export default function FamilyPage() {
     loading,
     createFamily,
     joinFamily,
+    updateFamilyName,
     leaveFamily,
     removeMember,
     promoteMember,
   } = useFamily();
   const [view, setView] = useState<'create' | 'join' | null>(null);
   const [familyName, setFamilyName] = useState('');
+  const [familyNameDraft, setFamilyNameDraft] = useState('');
+  const [editingFamilyName, setEditingFamilyName] = useState(false);
+  const [renamingFamily, setRenamingFamily] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const handleCreate = async () => {
     if (!familyName.trim()) return;
@@ -55,6 +61,38 @@ export default function FamilyPage() {
     navigator.clipboard.writeText(family.invite_code);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const beginFamilyNameEdit = () => {
+    if (!family) return;
+    setFamilyNameDraft(family.name);
+    setEditingFamilyName(true);
+    setError(null);
+    setNotice(null);
+  };
+
+  const handleFamilyNameUpdate = async () => {
+    const trimmedName = familyNameDraft.trim();
+    if (
+      !trimmedName ||
+      trimmedName.length > 100 ||
+      trimmedName === family?.name ||
+      renamingFamily
+    ) {
+      return;
+    }
+
+    setRenamingFamily(true);
+    setError(null);
+    setNotice(null);
+    const result = await updateFamilyName(trimmedName);
+    if (!result.success) {
+      setError(result.error ?? 'Failed to update family name');
+    } else {
+      setEditingFamilyName(false);
+      setNotice('Family name updated.');
+    }
+    setRenamingFamily(false);
   };
 
   const handleRemove = async (memberId: string) => {
@@ -278,14 +316,30 @@ export default function FamilyPage() {
   // Has a family
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1
-            className="font-serif text-3xl"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            {family.name}
-          </h1>
+      <div className="flex flex-col items-start gap-3 sm:flex-row sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1
+              className="font-serif text-3xl"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              {family.name}
+            </h1>
+            {isAdmin && !editingFamilyName && (
+              <Button
+                onClick={beginFamilyNameEdit}
+                color="inherit"
+                size="small"
+                startIcon={<EditOutlinedIcon fontSize="small" />}
+                sx={{
+                  color: 'var(--text-secondary)',
+                  textTransform: 'none',
+                }}
+              >
+                Edit family name
+              </Button>
+            )}
+          </div>
           <p
             className="text-sm mt-1"
             style={{ color: 'var(--text-secondary)' }}
@@ -295,6 +349,61 @@ export default function FamilyPage() {
           </p>
         </div>
       </div>
+
+      {editingFamilyName && (
+        <div className="rounded-2xl p-5 glass flex flex-col gap-3">
+          <div>
+            <p
+              className="text-sm font-medium"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              Edit family name
+            </p>
+            <p
+              className="text-xs mt-1"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              This name appears throughout the portal for every family member.
+            </p>
+          </div>
+          <AppTextField
+            autoFocus
+            label="Family name"
+            value={familyNameDraft}
+            onChange={(event) => setFamilyNameDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') void handleFamilyNameUpdate();
+              if (event.key === 'Escape') setEditingFamilyName(false);
+            }}
+            error={familyNameDraft.trim().length > 100}
+            helperText={
+              familyNameDraft.trim().length > 100
+                ? 'Family name must be 100 characters or fewer.'
+                : `${familyNameDraft.trim().length}/100`
+            }
+            slotProps={{ htmlInput: { maxLength: 101 } }}
+          />
+          <div className="flex flex-wrap gap-2">
+            <PrimaryButton
+              onClick={handleFamilyNameUpdate}
+              loading={renamingFamily}
+              disabled={
+                !familyNameDraft.trim() ||
+                familyNameDraft.trim().length > 100 ||
+                familyNameDraft.trim() === family.name
+              }
+            >
+              Save name
+            </PrimaryButton>
+            <SecondaryButton
+              onClick={() => setEditingFamilyName(false)}
+              disabled={renamingFamily}
+            >
+              Cancel
+            </SecondaryButton>
+          </div>
+        </div>
+      )}
 
       {error && (
         <p
@@ -306,6 +415,20 @@ export default function FamilyPage() {
           }}
         >
           {error}
+        </p>
+      )}
+
+      {notice && (
+        <p
+          className="text-sm px-4 py-3 rounded-xl"
+          role="status"
+          style={{
+            background: 'rgba(16,212,126,0.1)',
+            border: '1px solid rgba(16,212,126,0.3)',
+            color: 'var(--accent-green)',
+          }}
+        >
+          {notice}
         </p>
       )}
 
