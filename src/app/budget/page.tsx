@@ -195,7 +195,7 @@ export default function MonthlyBudgetPage() {
           previousMonth={previousBudget?.month ?? null}
           disabled={mutating}
           onCreate={() => void budgetData.createBudget()}
-          onCopy={() => void budgetData.copyPreviousMonth()}
+          onCopy={budgetData.copyPreviousMonth}
         />
       ) : (
         <>
@@ -426,31 +426,83 @@ function EmptyMonth({
   previousMonth: string | null;
   disabled: boolean;
   onCreate: () => void;
-  onCopy: () => void;
+  onCopy: (carrySurplus: boolean) => Promise<boolean>;
 }) {
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
+
+  const copyPlan = async (carrySurplus: boolean) => {
+    if (await onCopy(carrySurplus)) setCopyDialogOpen(false);
+  };
+
   return (
-    <section className="glass rounded-3xl px-6 py-14 text-center">
-      <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-(--accent-green-glow) text-2xl text-(--accent-green)">
-        $
-      </span>
-      <h2 className="mt-5 font-serif text-2xl text-(--text-primary)">
-        Plan {dayjs(month).format('MMMM')}
-      </h2>
-      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-(--text-secondary)">
-        This month is intentionally blank. Start fresh, or copy your latest plan
-        and carry its unused category surplus forward.
-      </p>
-      <div className="mt-6 flex flex-wrap justify-center gap-3">
-        {previousMonth && (
-          <PrimaryButton disabled={disabled} onClick={onCopy}>
-            Copy {dayjs(previousMonth).format('MMMM')} plan
-          </PrimaryButton>
-        )}
-        <SecondaryButton disabled={disabled} onClick={onCreate}>
-          Start blank month
-        </SecondaryButton>
-      </div>
-    </section>
+    <>
+      <section className="glass rounded-3xl px-6 py-14 text-center">
+        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-(--accent-green-glow) text-2xl text-(--accent-green)">
+          $
+        </span>
+        <h2 className="mt-5 font-serif text-2xl text-(--text-primary)">
+          Plan {dayjs(month).format('MMMM')}
+        </h2>
+        <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-(--text-secondary)">
+          Start fresh, or reuse your latest income and category plan.
+        </p>
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
+          {previousMonth && (
+            <PrimaryButton
+              disabled={disabled}
+              onClick={() => setCopyDialogOpen(true)}
+            >
+              Copy {dayjs(previousMonth).format('MMMM')} plan
+            </PrimaryButton>
+          )}
+          <SecondaryButton disabled={disabled} onClick={onCreate}>
+            Start blank month
+          </SecondaryButton>
+        </div>
+      </section>
+
+      <Dialog
+        open={copyDialogOpen}
+        onClose={() => {
+          if (!disabled) setCopyDialogOpen(false);
+        }}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>
+          Copy {previousMonth ? dayjs(previousMonth).format('MMMM') : ''} plan
+        </DialogTitle>
+        <DialogContent>
+          <p className="text-sm leading-6 text-(--text-secondary)">
+            Choose whether unused money from the previous month should be added
+            to this month.
+          </p>
+          <div className="mt-5 flex flex-col gap-3">
+            <PrimaryButton
+              disabled={disabled}
+              onClick={() => void copyPlan(false)}
+              sx={{ justifyContent: 'flex-start', py: 1.25 }}
+            >
+              Copy plan only — no surplus
+            </PrimaryButton>
+            <SecondaryButton
+              disabled={disabled}
+              onClick={() => void copyPlan(true)}
+              sx={{ justifyContent: 'flex-start', py: 1.25 }}
+            >
+              Copy plan and carry surplus
+            </SecondaryButton>
+            <Button
+              color="inherit"
+              disabled={disabled}
+              onClick={() => setCopyDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

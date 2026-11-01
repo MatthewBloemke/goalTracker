@@ -918,7 +918,11 @@ export type Database = {
         Returns: undefined
       }
       copy_budget_month: {
-        Args: { source_budget_id: string; target_month: string }
+        Args: {
+          carry_surplus?: boolean
+          source_budget_id: string
+          target_month: string
+        }
         Returns: string
       }
       create_budget_transaction: {

@@ -210,9 +210,10 @@ export function useBudget({ familyId, month }: UseBudgetOptions) {
     if (insertError) throw insertError
   }), [familyId, month, runMutation, supabase, user])
 
-  const copyPreviousMonth = useCallback(() => runMutation(async () => {
+  const copyPreviousMonth = useCallback((carrySurplus = true) => runMutation(async () => {
     if (!previousBudget) throw new Error('There is no earlier budget to copy')
     const { error: copyError } = await supabase.rpc('copy_budget_month', {
+      carry_surplus: carrySurplus,
       source_budget_id: previousBudget.id,
       target_month: month,
     })

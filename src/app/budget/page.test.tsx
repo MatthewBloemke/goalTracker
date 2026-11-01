@@ -381,13 +381,38 @@ test('manual transactions and activity remain accessible from the simplified pag
   );
 });
 
-test('new months retain explicit blank/copy actions and errors stay visible', () => {
+test('new months can copy a plan with or without prior surplus', async () => {
   mockData.budget = null;
   mockData.error = 'Connection lost';
   render(<MonthlyBudgetPage />);
   expect(screen.getByText('Connection lost')).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: /Copy .* plan/ }));
-  expect(mockData.copyPreviousMonth).toHaveBeenCalled();
+  const copyDialog = screen.getByRole('dialog', { name: /Copy .* plan/ });
+  fireEvent.click(
+    within(copyDialog).getByRole('button', {
+      name: 'Copy plan only — no surplus',
+    }),
+  );
+  await waitFor(() =>
+    expect(mockData.copyPreviousMonth).toHaveBeenCalledWith(false),
+  );
+  await waitFor(() =>
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+  );
+
+  fireEvent.click(screen.getByRole('button', { name: /Copy .* plan/ }));
+  fireEvent.click(
+    within(screen.getByRole('dialog')).getByRole('button', {
+      name: 'Copy plan and carry surplus',
+    }),
+  );
+  await waitFor(() =>
+    expect(mockData.copyPreviousMonth).toHaveBeenCalledWith(true),
+  );
+  await waitFor(() =>
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+  );
+
   fireEvent.click(screen.getByRole('button', { name: 'Start blank month' }));
   expect(mockData.createBudget).toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
