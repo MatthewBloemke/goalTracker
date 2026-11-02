@@ -381,6 +381,34 @@ test('manual transactions and activity remain accessible from the simplified pag
   );
 });
 
+test('transaction categories are grouped in budget order', async () => {
+  mockData.categories = [
+    mockData.categories[2],
+    mockData.categories[1],
+    mockData.categories[0],
+  ];
+  render(<MonthlyBudgetPage />);
+  fireEvent.click(screen.getByRole('button', { name: 'Add transaction' }));
+  fireEvent.mouseDown(
+    screen.getByRole('combobox', { name: 'Split 1 category' }),
+  );
+
+  const listbox = await screen.findByRole('listbox');
+  expect(listbox).toHaveTextContent(
+    'Choose categoryFoodGroceriesHousingRentDebtCar loan',
+  );
+  expect(
+    within(listbox)
+      .getAllByRole('option')
+      .map((option) => option.getAttribute('aria-label'))
+      .filter(Boolean),
+  ).toEqual([
+    'Food · Groceries',
+    'Housing · Rent',
+    'Debt · Car loan',
+  ]);
+});
+
 test('new months can copy a plan with or without prior surplus', async () => {
   mockData.budget = null;
   mockData.error = 'Connection lost';

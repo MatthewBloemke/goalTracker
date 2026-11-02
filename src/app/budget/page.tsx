@@ -12,6 +12,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
 import LinearProgress from '@mui/material/LinearProgress';
+import ListSubheader from '@mui/material/ListSubheader';
 import MenuItem from '@mui/material/MenuItem';
 import Popover from '@mui/material/Popover';
 import Tab from '@mui/material/Tab';
@@ -1213,6 +1214,30 @@ function TransactionDialog({
     () => new Map(groups.map((group) => [group.id, group])),
     [groups],
   );
+  const categoryGroups = useMemo(() => {
+    const categoriesByGroup = new Map<string, BudgetCategory[]>();
+    for (const category of categories) {
+      categoriesByGroup.set(category.group_id, [
+        ...(categoriesByGroup.get(category.group_id) ?? []),
+        category,
+      ]);
+    }
+
+    return groups
+      .map((group) => ({
+        group,
+        categories: [...(categoriesByGroup.get(group.id) ?? [])].sort(
+          (left, right) =>
+            left.sort_order - right.sort_order ||
+            left.name.localeCompare(right.name),
+        ),
+      }))
+      .filter(({ categories: groupCategories }) => groupCategories.length > 0);
+  }, [categories, groups]);
+  const categoryById = useMemo(
+    () => new Map(categories.map((category) => [category.id, category])),
+    [categories],
+  );
 
   useEffect(() => {
     if (!receiptAnalysis || appliedReceiptAnalysis.current === receiptAnalysis)
@@ -1399,6 +1424,14 @@ function TransactionDialog({
                     slotProps={{
                       select: {
                         displayEmpty: true,
+                        renderValue: (selected) => {
+                          const category = categoryById.get(String(selected));
+                          if (!category) return 'Choose category';
+                          const group = groupById.get(category.group_id);
+                          return group
+                            ? `${group.name} · ${category.name}`
+                            : category.name;
+                        },
                         inputProps: {
                           'aria-label': `Split ${index + 1} category`,
                         },
@@ -1409,12 +1442,32 @@ function TransactionDialog({
                     <MenuItem value="" disabled>
                       Choose category
                     </MenuItem>
-                    {categories.map((category) => (
-                      <MenuItem key={category.id} value={category.id}>
-                        {groupById.get(category.group_id)?.name} ·{' '}
-                        {category.name}
-                      </MenuItem>
-                    ))}
+                    {categoryGroups.flatMap(({ group, categories: options }) => [
+                      <ListSubheader
+                        key={`group-${group.id}`}
+                        disableSticky
+                        sx={{
+                          color: 'var(--text-secondary)',
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          letterSpacing: '0.08em',
+                          lineHeight: 2.5,
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        {group.name}
+                      </ListSubheader>,
+                      ...options.map((category) => (
+                        <MenuItem
+                          key={category.id}
+                          value={category.id}
+                          aria-label={`${group.name} · ${category.name}`}
+                          sx={{ pl: 3 }}
+                        >
+                          {category.name}
+                        </MenuItem>
+                      )),
+                    ])}
                   </AppTextField>
                   <AppTextField
                     required
