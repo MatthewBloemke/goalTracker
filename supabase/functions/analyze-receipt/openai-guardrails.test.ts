@@ -4,13 +4,23 @@ import {
   readOpenAiTokenUsage,
   RECEIPT_MAX_OUTPUT_TOKENS,
   supportsReasoningEffortNone,
+  type ReceiptOpenAiSource,
 } from './openai-guardrails'
 
-const buildRequest = (model: string) => buildReceiptOpenAiRequest({
+const defaultSource: ReceiptOpenAiSource = {
+  type: 'image',
+  data: 'aGVsbG8=',
+  mimeType: 'image/jpeg',
+}
+
+const buildRequest = (
+  model: string,
+  source: ReceiptOpenAiSource = defaultSource,
+) => buildReceiptOpenAiRequest({
   model,
   systemPrompt: 'Extract this receipt.',
   categories: [{ id: 'category-id', name: 'Groceries' }],
-  image: { data: 'aGVsbG8=', mimeType: 'image/jpeg' },
+  source,
   schema: { type: 'object' },
 })
 
@@ -22,6 +32,46 @@ describe('receipt OpenAI request safeguards', () => {
     expect(request.max_output_tokens).toBe(RECEIPT_MAX_OUTPUT_TOKENS)
     expect(request.max_output_tokens).toBe(2000)
     expect(userContent[1]).toMatchObject({ type: 'input_image', detail: 'high' })
+  })
+
+  test('sends PDF and email documents directly without creating stored files', () => {
+    const pdfContent = buildRequest('gpt-4o-mini', {
+      type: 'document',
+      data: 'JVBERi0=',
+      mimeType: 'application/pdf',
+      fileName: 'order.pdf',
+    }).input[1].content[1]
+    expect(pdfContent).toMatchObject({
+      type: 'input_file',
+      filename: 'order.pdf',
+      file_data: 'data:application/pdf;base64,JVBERi0=',
+      detail: 'high',
+    })
+
+    const emailContent = buildRequest('gpt-4o-mini', {
+      type: 'document',
+      data: 'RnJvbTo=',
+      mimeType: 'message/rfc822',
+      fileName: 'order.eml',
+    }).input[1].content[1]
+    expect(emailContent).toMatchObject({
+      type: 'input_file',
+      filename: 'order.eml',
+      file_data: 'data:message/rfc822;base64,RnJvbTo=',
+    })
+    expect(emailContent).not.toHaveProperty('detail')
+  })
+
+  test('marks pasted receipt content as untrusted data', () => {
+    const request = buildRequest('gpt-4o-mini', {
+      type: 'text',
+      text: 'Merchant: Example\nTotal: $12.34',
+    })
+    expect(request.input[1].content[0].text).toMatch(/untrusted financial data/i)
+    expect(request.input[1].content[1]).toMatchObject({
+      type: 'input_text',
+      text: expect.stringContaining('Merchant: Example'),
+    })
   })
 
   test('uses no reasoning only for supported GPT-5 model families', () => {

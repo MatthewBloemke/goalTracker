@@ -1,6 +1,9 @@
 import {
+  getReceiptDocumentError,
+  getReceiptDocumentType,
   getReceiptFileError,
   getReceiptResizeDimensions,
+  getReceiptTextError,
   MAX_RECEIPT_SOURCE_BYTES,
   parseReceiptAnalysis,
   receiptAnalysisToTransactionDraft,
@@ -57,6 +60,50 @@ describe('receipt image validation', () => {
       width: 1200,
       height: 800,
     });
+  });
+});
+
+describe('receipt document and pasted text validation', () => {
+  test('accepts PDF and exported email files, including generic browser MIME types', () => {
+    expect(getReceiptDocumentType({ name: 'order.pdf', type: 'application/pdf' }))
+      .toBe('application/pdf');
+    expect(getReceiptDocumentType({ name: 'order.eml', type: '' }))
+      .toBe('message/rfc822');
+    expect(getReceiptDocumentError({
+      name: 'order.eml',
+      type: 'application/octet-stream',
+      size: 1024,
+    })).toBeNull();
+  });
+
+  test('rejects mismatched, empty, and oversized document files', () => {
+    expect(getReceiptDocumentError({
+      name: 'order.pdf',
+      type: 'message/rfc822',
+      size: 1024,
+    })).toMatch(/PDF or exported email/);
+    expect(getReceiptDocumentError({
+      name: 'order.txt',
+      type: 'text/plain',
+      size: 1024,
+    })).toMatch(/PDF or exported email/);
+    expect(getReceiptDocumentError({
+      name: 'order.pdf',
+      type: 'application/pdf',
+      size: 0,
+    })).toMatch(/empty/);
+    expect(getReceiptDocumentError({
+      name: 'order.pdf',
+      type: 'application/pdf',
+      size: MAX_RECEIPT_SOURCE_BYTES + 1,
+    })).toMatch(/10 MB/);
+  });
+
+  test('requires enough pasted content and caps its length', () => {
+    expect(getReceiptTextError('Merchant: Store\nTotal: $12.34')).toBeNull();
+    expect(getReceiptTextError('')).toMatch(/Paste/);
+    expect(getReceiptTextError('Total $5')).toMatch(/more/);
+    expect(getReceiptTextError('x'.repeat(100_001))).toMatch(/100,000/);
   });
 });
 

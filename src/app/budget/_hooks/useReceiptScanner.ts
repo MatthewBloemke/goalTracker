@@ -3,8 +3,11 @@
 import { useCallback, useRef, useState } from 'react';
 import { useSupabase } from '@/components/providers/SupabaseProvider';
 import {
+  getReceiptDocumentError,
+  getReceiptDocumentType,
   getReceiptFileError,
   getReceiptResizeDimensions,
+  getReceiptTextError,
   MAX_RECEIPT_PROCESSED_BYTES,
   parseReceiptAnalysis,
   type ReceiptAnalysis,
@@ -16,6 +19,11 @@ interface UseReceiptScannerOptions {
   categories: BudgetCategory[];
 }
 
+type ReceiptSource =
+  | { type: 'image'; data: string; mimeType: string }
+  | { type: 'document'; data: string; mimeType: string; fileName: string }
+  | { type: 'text'; text: string };
+
 export function useReceiptScanner({
   familyId,
   categories,
@@ -26,16 +34,20 @@ export function useReceiptScanner({
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef(0);
 
-  const analyze = useCallback(async (file: File) => {
+  const rejectInput = useCallback((message: string) => {
+    requestId.current += 1;
+    setAnalysis(null);
+    setAnalyzing(false);
+    setError(message);
+  }, []);
+
+  const analyzeSource = useCallback(async (
+    prepareSource: () => Promise<ReceiptSource>,
+  ) => {
     const currentRequest = ++requestId.current;
     setAnalysis(null);
     setError(null);
-
-    const fileError = getReceiptFileError(file);
-    if (fileError) {
-      setError(fileError);
-      return;
-    }
+    setAnalyzing(false);
     if (categories.length === 0) {
       setError('Create at least one budget category before scanning a receipt.');
       return;
@@ -47,14 +59,14 @@ export function useReceiptScanner({
 
     setAnalyzing(true);
     try {
-      const image = await prepareReceiptImage(file);
+      const receipt = await prepareSource();
       const { data, error: functionError } = await supabase.functions.invoke(
         'analyze-receipt',
         {
           body: {
             familyId,
             categoryIds: categories.map(({ id }) => id),
-            image,
+            receipt,
           },
         },
       );
@@ -75,6 +87,42 @@ export function useReceiptScanner({
     }
   }, [categories, familyId, supabase]);
 
+  const analyze = useCallback(async (file: File) => {
+    const fileError = getReceiptFileError(file);
+    if (fileError) {
+      rejectInput(fileError);
+      return;
+    }
+    await analyzeSource(async () => ({
+      type: 'image',
+      ...await prepareReceiptImage(file),
+    }));
+  }, [analyzeSource, rejectInput]);
+
+  const analyzeDocument = useCallback(async (file: File) => {
+    const fileError = getReceiptDocumentError(file);
+    const mimeType = getReceiptDocumentType(file);
+    if (fileError || !mimeType) {
+      rejectInput(fileError ?? 'Choose a PDF or exported email (.eml) file.');
+      return;
+    }
+    await analyzeSource(async () => ({
+      type: 'document',
+      data: await blobToBase64(file),
+      mimeType,
+      fileName: file.name,
+    }));
+  }, [analyzeSource, rejectInput]);
+
+  const analyzeText = useCallback(async (text: string) => {
+    const textError = getReceiptTextError(text);
+    if (textError) {
+      rejectInput(textError);
+      return;
+    }
+    await analyzeSource(async () => ({ type: 'text', text: text.trim() }));
+  }, [analyzeSource, rejectInput]);
+
   const reset = useCallback(() => {
     requestId.current += 1;
     setAnalysis(null);
@@ -82,7 +130,15 @@ export function useReceiptScanner({
     setAnalyzing(false);
   }, []);
 
-  return { analysis, analyzing, error, analyze, reset };
+  return {
+    analysis,
+    analyzing,
+    error,
+    analyze,
+    analyzeDocument,
+    analyzeText,
+    reset,
+  };
 }
 
 async function prepareReceiptImage(file: File) {
@@ -139,11 +195,11 @@ function renderReceipt(bitmap: ImageBitmap, maxDimension: number, quality: numbe
 function blobToBase64(blob: Blob) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
-    reader.onerror = () => reject(new Error('Your browser could not read the receipt image.'));
+    reader.onerror = () => reject(new Error('Your browser could not read the receipt file.'));
     reader.onload = () => {
       const result = typeof reader.result === 'string' ? reader.result : '';
       const commaIndex = result.indexOf(',');
-      if (commaIndex < 0) reject(new Error('Your browser returned an invalid receipt image.'));
+      if (commaIndex < 0) reject(new Error('Your browser returned an invalid receipt file.'));
       else resolve(result.slice(commaIndex + 1));
     };
     reader.readAsDataURL(blob);

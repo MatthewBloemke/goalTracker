@@ -8,6 +8,7 @@ import {
   buildReceiptOpenAiRequest,
   readOpenAiResponseStatus,
   readOpenAiTokenUsage,
+  type ReceiptOpenAiSource,
 } from './openai-guardrails.ts'
 import {
   getReceiptCategoryDescription,
@@ -17,8 +18,14 @@ import { parseReceiptAccessDecision } from './receipt-access.ts'
 
 const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses'
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024
+const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024
+const MAX_TEXT_CHARACTERS = 100_000
 const MAX_CATEGORIES = 200
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
+const DOCUMENT_EXTENSIONS = new Map([
+  ['application/pdf', '.pdf'],
+  ['message/rfc822', '.eml'],
+])
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 const corsHeaders = {
@@ -90,7 +97,7 @@ Deno.serve(async (request: Request) => {
       throw new PublicError('This receipt does not belong to your active family.', 403)
     }
     const requestedCategoryIds = readCategoryIds(body.categoryIds)
-    const image = readImage(body.image)
+    const receiptSource = readReceiptSource(body.receipt)
 
     const groupQuery = supabase
       .from('budget_groups')
@@ -187,7 +194,7 @@ Deno.serve(async (request: Request) => {
         model,
         systemPrompt: RECEIPT_SYSTEM_PROMPT,
         categories: modelCategories,
-        image,
+        source: receiptSource,
         schema: buildReceiptSchema(requestedCategoryIds),
       })),
     })
@@ -210,7 +217,7 @@ Deno.serve(async (request: Request) => {
     if (responseStatus === 'incomplete') {
       if (incompleteReason === 'max_output_tokens') {
         throw new PublicError(
-          'Receipt analysis reached the output limit. Try again with a clearer or more tightly cropped photo.',
+          'Receipt analysis reached the output limit. Try again with a clearer image, smaller document, or less pasted text.',
           422,
         )
       }
@@ -222,7 +229,7 @@ Deno.serve(async (request: Request) => {
 
     const outputText = extractOutputText(openAiPayload)
     if (!outputText) {
-      throw new PublicError('The receipt could not be read. Try a clearer, well-lit photo.', 422)
+      throw new PublicError('The receipt could not be read. Try a clearer image, PDF, exported email, or pasted order summary.', 422)
     }
 
     let modelResult: unknown
@@ -281,22 +288,116 @@ function readCategoryIds(value: unknown) {
   return ids as string[]
 }
 
-function readImage(value: unknown) {
+function readReceiptSource(value: unknown): ReceiptOpenAiSource {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new PublicError('A receipt image is required.', 400)
+    throw new PublicError('A receipt image, document, or pasted text is required.', 400)
   }
-  const { data, mimeType } = value as Record<string, unknown>
+  const source = value as Record<string, unknown>
+  if (source.type === 'image') return readImage(source)
+  if (source.type === 'document') return readDocument(source)
+  if (source.type === 'text') return readReceiptText(source)
+  throw new PublicError('Choose a supported receipt input.', 400)
+}
+
+function readImage(value: Record<string, unknown>): ReceiptOpenAiSource {
+  const { data, mimeType } = value
   if (typeof mimeType !== 'string' || !ALLOWED_IMAGE_TYPES.has(mimeType)) {
     throw new PublicError('Use a JPEG, PNG, or WebP receipt image.', 415)
   }
-  if (typeof data !== 'string' || !/^[A-Za-z0-9+/]+={0,2}$/.test(data)) {
+  if (!isValidBase64(data)) {
     throw new PublicError('The receipt image is invalid.', 400)
   }
-  const estimatedBytes = Math.floor(data.length * 0.75) - (data.endsWith('==') ? 2 : data.endsWith('=') ? 1 : 0)
+  const estimatedBytes = estimateBase64Bytes(data)
   if (estimatedBytes <= 0 || estimatedBytes > MAX_IMAGE_BYTES) {
     throw new PublicError('The processed receipt image must be 5 MB or smaller.', 413)
   }
-  return { data, mimeType }
+  return { type: 'image', data, mimeType }
+}
+
+function readDocument(value: Record<string, unknown>): ReceiptOpenAiSource {
+  const { data, mimeType, fileName } = value
+  if (typeof mimeType !== 'string' || !DOCUMENT_EXTENSIONS.has(mimeType)) {
+    throw new PublicError('Use a PDF or exported email (.eml) receipt.', 415)
+  }
+  if (
+    typeof fileName !== 'string'
+    || fileName.length === 0
+    || fileName.length > 200
+    || /[\u0000-\u001f\u007f]/.test(fileName)
+    || fileName.includes('/')
+    || fileName.includes('\\')
+    || !fileName.toLowerCase().endsWith(DOCUMENT_EXTENSIONS.get(mimeType) ?? '')
+  ) {
+    throw new PublicError('The receipt document name is invalid.', 400)
+  }
+  if (!isValidBase64(data)) {
+    throw new PublicError('The receipt document is invalid.', 400)
+  }
+  const estimatedBytes = estimateBase64Bytes(data)
+  if (estimatedBytes <= 0 || estimatedBytes > MAX_DOCUMENT_BYTES) {
+    throw new PublicError('The receipt document must be 10 MB or smaller.', 413)
+  }
+
+  const prefix = decodeBase64Prefix(data, 16 * 1024)
+  if (mimeType === 'application/pdf') {
+    if (prefix.indexOf('%PDF-') < 0 || prefix.indexOf('%PDF-') > 1024) {
+      throw new PublicError('The selected file is not a valid PDF.', 415)
+    }
+  } else if (!looksLikeEmail(prefix)) {
+    throw new PublicError('The selected file is not a valid exported email.', 415)
+  }
+
+  return {
+    type: 'document',
+    data,
+    mimeType: mimeType as 'application/pdf' | 'message/rfc822',
+    fileName,
+  }
+}
+
+function readReceiptText(value: Record<string, unknown>): ReceiptOpenAiSource {
+  const text = typeof value.text === 'string' ? value.text.trim() : ''
+  if (text.length < 20) {
+    throw new PublicError('Paste more of the receipt or order details.', 400)
+  }
+  if (text.length > MAX_TEXT_CHARACTERS) {
+    throw new PublicError('Pasted receipt text must be 100,000 characters or fewer.', 413)
+  }
+  if (text.includes('\u0000')) {
+    throw new PublicError('The pasted receipt text contains invalid characters.', 400)
+  }
+  return { type: 'text', text }
+}
+
+function isValidBase64(value: unknown): value is string {
+  return typeof value === 'string'
+    && value.length > 0
+    && value.length % 4 === 0
+    && /^[A-Za-z0-9+/]+={0,2}$/.test(value)
+}
+
+function estimateBase64Bytes(data: string) {
+  return Math.floor(data.length * 0.75)
+    - (data.endsWith('==') ? 2 : data.endsWith('=') ? 1 : 0)
+}
+
+function decodeBase64Prefix(data: string, maxBytes: number) {
+  try {
+    const encodedLength = Math.min(data.length, Math.ceil(maxBytes / 3) * 4)
+    const alignedLength = encodedLength - (encodedLength % 4)
+    return atob(data.slice(0, alignedLength))
+  } catch {
+    throw new PublicError('The receipt document is invalid.', 400)
+  }
+}
+
+function looksLikeEmail(prefix: string) {
+  if (prefix.includes('\u0000')) return false
+  const headers = new Set(
+    [...prefix.matchAll(/^(from|to|subject|date|mime-version|content-type|message-id|received|delivered-to|return-path):/gim)]
+      .map((match) => match[1].toLowerCase()),
+  )
+  return headers.size >= 2
 }
 
 function extractOutputText(payload: unknown) {

@@ -37,6 +37,8 @@ import {
   validateTransactionSplits,
 } from '@/app/budget/_lib/budget';
 import {
+  getReceiptTextError,
+  RECEIPT_DOCUMENT_ACCEPT,
   RECEIPT_IMAGE_TYPES,
   receiptAnalysisToTransactionDraft,
   type ReceiptAnalysis,
@@ -73,6 +75,7 @@ export default function MonthlyBudgetPage() {
   const [receiptAnchor, setReceiptAnchor] = useState<HTMLButtonElement | null>(
     null,
   );
+  const [receiptTextRequested, setReceiptTextRequested] = useState(false);
   const budgetData = useBudget({ familyId: family?.id, month });
   const {
     budget,
@@ -145,6 +148,7 @@ export default function MonthlyBudgetPage() {
             startIcon={<AddRounded />}
             onClick={() => {
               receiptScanner.reset();
+              setReceiptTextRequested(false);
               setShowTransactionForm(true);
             }}
             disabled={categories.length === 0}
@@ -168,18 +172,48 @@ export default function MonthlyBudgetPage() {
           },
         }}
       >
-        {[true, false].map((capture) => (
-          <ReceiptImageButton
-            key={String(capture)}
-            label={capture ? 'Scan receipt' : 'Upload receipt'}
-            capture={capture}
-            onSelect={(file) => {
-              setReceiptAnchor(null);
-              setShowTransactionForm(true);
-              void receiptScanner.analyze(file);
-            }}
-          />
-        ))}
+        <ReceiptFileButton
+          label="Scan receipt"
+          accept={RECEIPT_IMAGE_TYPES.join(',')}
+          capture
+          onSelect={(file) => {
+            setReceiptAnchor(null);
+            setReceiptTextRequested(false);
+            setShowTransactionForm(true);
+            void receiptScanner.analyze(file);
+          }}
+        />
+        <ReceiptFileButton
+          label="Upload image"
+          accept={RECEIPT_IMAGE_TYPES.join(',')}
+          onSelect={(file) => {
+            setReceiptAnchor(null);
+            setReceiptTextRequested(false);
+            setShowTransactionForm(true);
+            void receiptScanner.analyze(file);
+          }}
+        />
+        <ReceiptFileButton
+          label="Upload PDF or email"
+          accept={RECEIPT_DOCUMENT_ACCEPT}
+          onSelect={(file) => {
+            setReceiptAnchor(null);
+            setReceiptTextRequested(false);
+            setShowTransactionForm(true);
+            void receiptScanner.analyzeDocument(file);
+          }}
+        />
+        <Button
+          variant="outlined"
+          color="inherit"
+          onClick={() => {
+            setReceiptAnchor(null);
+            setReceiptTextRequested(true);
+            setShowTransactionForm(true);
+          }}
+        >
+          Paste receipt text
+        </Button>
       </Popover>
 
       <MonthNavigator month={month} onChange={setMonth} />
@@ -339,14 +373,23 @@ export default function MonthlyBudgetPage() {
         receiptAnalysis={receiptScanner.analysis}
         receiptError={receiptScanner.error}
         analyzingReceipt={receiptScanner.analyzing}
+        initialReceiptTextOpen={receiptTextRequested}
         onAnalyzeReceipt={(file) => void receiptScanner.analyze(file)}
+        onAnalyzeReceiptDocument={(file) =>
+          void receiptScanner.analyzeDocument(file)
+        }
+        onAnalyzeReceiptText={(text) => void receiptScanner.analyzeText(text)}
         onClose={() => {
           receiptScanner.reset();
+          setReceiptTextRequested(false);
           setShowTransactionForm(false);
         }}
         onSave={async (input) => {
           const success = await budgetData.createTransaction(input);
-          if (success) setShowTransactionForm(false);
+          if (success) {
+            setReceiptTextRequested(false);
+            setShowTransactionForm(false);
+          }
         }}
       />
       <NewGroupDialog
@@ -1183,7 +1226,10 @@ function TransactionDialog({
   receiptAnalysis,
   receiptError,
   analyzingReceipt,
+  initialReceiptTextOpen,
   onAnalyzeReceipt,
+  onAnalyzeReceiptDocument,
+  onAnalyzeReceiptText,
   onClose,
   onSave,
 }: {
@@ -1195,7 +1241,10 @@ function TransactionDialog({
   receiptAnalysis: ReceiptAnalysis | null;
   receiptError: string | null;
   analyzingReceipt: boolean;
+  initialReceiptTextOpen: boolean;
   onAnalyzeReceipt: (file: File) => void;
+  onAnalyzeReceiptDocument: (file: File) => void;
+  onAnalyzeReceiptText: (text: string) => void;
   onClose: () => void;
   onSave: (input: CreateTransactionInput) => Promise<void>;
 }) {
@@ -1205,6 +1254,10 @@ function TransactionDialog({
     month === toBudgetMonth(new Date()) ? dayjs().format('YYYY-MM-DD') : month,
   );
   const [note, setNote] = useState('');
+  const [receiptText, setReceiptText] = useState('');
+  const [showReceiptText, setShowReceiptText] = useState(
+    initialReceiptTextOpen,
+  );
   const [transactionSplits, setTransactionSplits] = useState<
     Array<{ categoryId: string; amount: string }>
   >([{ categoryId: '', amount: '' }]);
@@ -1259,6 +1312,8 @@ function TransactionDialog({
     setMerchant('');
     setAmount('');
     setNote('');
+    setReceiptText('');
+    setShowReceiptText(false);
     setTransactionSplits([{ categoryId: '', amount: '' }]);
     setValidationError(null);
     onClose();
@@ -1304,22 +1359,76 @@ function TransactionDialog({
               Prefill from a receipt
             </p>
             <p className="mt-1 text-xs text-(--text-secondary)">
-              The image is processed temporarily and is not saved with the
-              transaction.
+              Images, documents, and pasted text are processed temporarily and
+              are not saved with the transaction.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <ReceiptImageButton
+              <ReceiptFileButton
                 label="Scan with camera"
+                accept={RECEIPT_IMAGE_TYPES.join(',')}
                 capture
                 disabled={analyzingReceipt}
                 onSelect={onAnalyzeReceipt}
               />
-              <ReceiptImageButton
+              <ReceiptFileButton
                 label="Choose image"
+                accept={RECEIPT_IMAGE_TYPES.join(',')}
                 disabled={analyzingReceipt}
                 onSelect={onAnalyzeReceipt}
               />
+              <ReceiptFileButton
+                label="PDF or email"
+                accept={RECEIPT_DOCUMENT_ACCEPT}
+                disabled={analyzingReceipt}
+                onSelect={onAnalyzeReceiptDocument}
+              />
+              <Button
+                type="button"
+                variant="outlined"
+                color="inherit"
+                disabled={analyzingReceipt}
+                onClick={() => setShowReceiptText((current) => !current)}
+              >
+                Paste text
+              </Button>
             </div>
+            {showReceiptText && (
+              <div className="mt-3 flex flex-col gap-2 border-t border-(--border) pt-3">
+                <AppTextField
+                  multiline
+                  minRows={5}
+                  maxRows={10}
+                  value={receiptText}
+                  disabled={analyzingReceipt}
+                  onChange={(event) => setReceiptText(event.target.value)}
+                  placeholder="Paste the merchant, order date, items, tax, and total from the email."
+                  slotProps={{
+                    htmlInput: {
+                      'aria-label': 'Pasted receipt text',
+                      maxLength: 100_000,
+                    },
+                  }}
+                />
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs text-(--text-secondary)">
+                    Include the complete order summary when possible.
+                  </p>
+                  <SecondaryButton
+                    type="button"
+                    size="small"
+                    disabled={
+                      analyzingReceipt || Boolean(getReceiptTextError(receiptText))
+                    }
+                    onClick={() => {
+                      setShowReceiptText(false);
+                      onAnalyzeReceiptText(receiptText);
+                    }}
+                  >
+                    Analyze text
+                  </SecondaryButton>
+                </div>
+              </div>
+            )}
           </div>
 
           {analyzingReceipt && (
@@ -1529,13 +1638,15 @@ function TransactionDialog({
   );
 }
 
-function ReceiptImageButton({
+function ReceiptFileButton({
   label,
+  accept,
   capture = false,
   disabled,
   onSelect,
 }: {
   label: string;
+  accept: string;
   capture?: boolean;
   disabled?: boolean;
   onSelect: (file: File) => void;
@@ -1552,7 +1663,7 @@ function ReceiptImageButton({
         aria-label={label}
         hidden
         type="file"
-        accept={RECEIPT_IMAGE_TYPES.join(',')}
+        accept={accept}
         capture={capture ? 'environment' : undefined}
         onChange={(event) => {
           const file = event.currentTarget.files?.[0];

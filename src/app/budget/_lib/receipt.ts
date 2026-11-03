@@ -1,6 +1,10 @@
 export const RECEIPT_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+export const RECEIPT_DOCUMENT_ACCEPT = '.pdf,.eml,application/pdf,message/rfc822';
 export const MAX_RECEIPT_SOURCE_BYTES = 10 * 1024 * 1024;
 export const MAX_RECEIPT_PROCESSED_BYTES = 5 * 1024 * 1024;
+export const MAX_RECEIPT_TEXT_CHARACTERS = 100_000;
+
+export type ReceiptDocumentType = 'application/pdf' | 'message/rfc822';
 
 export interface ReceiptItem {
   description: string;
@@ -44,6 +48,51 @@ export function getReceiptFileError(file: Pick<File, 'size' | 'type'>) {
   if (file.size <= 0) return 'The selected image is empty.';
   if (file.size > MAX_RECEIPT_SOURCE_BYTES) {
     return 'The original image must be 10 MB or smaller.';
+  }
+  return null;
+}
+
+export function getReceiptDocumentType(
+  file: Pick<File, 'name' | 'type'>,
+): ReceiptDocumentType | null {
+  const extension = file.name.toLowerCase().match(/\.[^.]+$/)?.[0] ?? '';
+  const declaredType = file.type.toLowerCase();
+  const typeIsGeneric = declaredType === '' || declaredType === 'application/octet-stream';
+
+  if (
+    extension === '.pdf'
+    && (typeIsGeneric || declaredType === 'application/pdf')
+  ) return 'application/pdf';
+
+  if (
+    extension === '.eml'
+    && (typeIsGeneric || declaredType === 'message/rfc822')
+  ) return 'message/rfc822';
+
+  return null;
+}
+
+export function getReceiptDocumentError(
+  file: Pick<File, 'name' | 'size' | 'type'>,
+) {
+  if (!getReceiptDocumentType(file)) {
+    return 'Choose a PDF or exported email (.eml) file.';
+  }
+  if (file.size <= 0) return 'The selected document is empty.';
+  if (file.size > MAX_RECEIPT_SOURCE_BYTES) {
+    return 'The receipt document must be 10 MB or smaller.';
+  }
+  return null;
+}
+
+export function getReceiptTextError(text: string) {
+  const trimmed = text.trim();
+  if (!trimmed) return 'Paste the receipt or order details first.';
+  if (trimmed.length < 20) {
+    return 'Paste more of the receipt so the merchant, total, and purchased items are included.';
+  }
+  if (trimmed.length > MAX_RECEIPT_TEXT_CHARACTERS) {
+    return 'Pasted receipt text must be 100,000 characters or fewer.';
   }
   return null;
 }

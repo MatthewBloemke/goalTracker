@@ -23,6 +23,8 @@ import type {
 
 let mockData: ReturnType<typeof useBudget>;
 const mockAnalyze = jest.fn();
+const mockAnalyzeDocument = jest.fn();
+const mockAnalyzeText = jest.fn();
 const mockReset = jest.fn();
 jest.mock('./_hooks/useBudget', () => ({ useBudget: () => mockData }));
 jest.mock('@/hooks/useFamily', () => ({
@@ -37,6 +39,8 @@ jest.mock('./_hooks/useReceiptScanner', () => ({
     error: null,
     analyzing: false,
     analyze: mockAnalyze,
+    analyzeDocument: mockAnalyzeDocument,
+    analyzeText: mockAnalyzeText,
     reset: mockReset,
   }),
 }));
@@ -334,7 +338,7 @@ test('formatted income can be edited, cancelled, and retried after a failed save
 
 test.each([
   ['Scan receipt', 'environment'],
-  ['Upload receipt', null],
+  ['Upload image', null],
 ])('receipt menu preserves %s input and never autosaves', (label, capture) => {
   render(<MonthlyBudgetPage />);
   expect(screen.queryByLabelText(label)).not.toBeInTheDocument();
@@ -347,6 +351,40 @@ test.each([
   expect(
     screen.getByRole('heading', { name: 'Add transaction' }),
   ).toBeVisible();
+  expect(mockData.createTransaction).not.toHaveBeenCalled();
+});
+
+test('receipt menu accepts PDF or exported email documents without autosaving', () => {
+  render(<MonthlyBudgetPage />);
+  fireEvent.click(screen.getByRole('button', { name: 'Receipt' }));
+  const input = screen.getByLabelText('Upload PDF or email');
+  expect(input).toHaveAttribute(
+    'accept',
+    '.pdf,.eml,application/pdf,message/rfc822',
+  );
+  const file = new File(['%PDF-1.7'], 'order.pdf', {
+    type: 'application/pdf',
+  });
+  fireEvent.change(input, { target: { files: [file] } });
+  expect(mockAnalyzeDocument).toHaveBeenCalledWith(file);
+  expect(
+    screen.getByRole('heading', { name: 'Add transaction' }),
+  ).toBeVisible();
+  expect(mockData.createTransaction).not.toHaveBeenCalled();
+});
+
+test('pasted order text uses the same review-first transaction flow', () => {
+  render(<MonthlyBudgetPage />);
+  fireEvent.click(screen.getByRole('button', { name: 'Receipt' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Paste receipt text' }));
+
+  const text = 'Merchant: Online Store\nOrder date: 2026-11-03\nTotal: $42.15';
+  fireEvent.change(screen.getByLabelText('Pasted receipt text'), {
+    target: { value: text },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Analyze text' }));
+
+  expect(mockAnalyzeText).toHaveBeenCalledWith(text);
   expect(mockData.createTransaction).not.toHaveBeenCalled();
 });
 
