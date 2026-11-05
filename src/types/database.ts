@@ -20,6 +20,7 @@ export type Database = {
           created_at: string
           group_id: string
           id: string
+          include_in_receipt_scans: boolean
           is_system: boolean
           loan_id: string | null
           name: string
@@ -31,6 +32,7 @@ export type Database = {
           created_at?: string
           group_id: string
           id?: string
+          include_in_receipt_scans?: boolean
           is_system?: boolean
           loan_id?: string | null
           name: string
@@ -42,6 +44,7 @@ export type Database = {
           created_at?: string
           group_id?: string
           id?: string
+          include_in_receipt_scans?: boolean
           is_system?: boolean
           loan_id?: string | null
           name?: string

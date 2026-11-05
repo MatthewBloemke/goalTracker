@@ -156,6 +156,9 @@ export function validateReceiptAnalysis(
 
   if (suppressedSingleCategoryItems) {
     items = []
+    for (const reason of modelReviewReasons) {
+      if (!isItemOnlyReviewReason(reason)) reasons.add(reason)
+    }
   } else {
     for (const reason of modelReviewReasons) reasons.add(reason)
     for (const reason of itemReasons) reasons.add(reason)
@@ -195,7 +198,11 @@ export function validateReceiptAnalysis(
     tip,
     fees,
     total,
-    requiresReview: (!suppressedSingleCategoryItems && input.requiresReview === true)
+    requiresReview: (input.requiresReview === true && !(
+      suppressedSingleCategoryItems
+      && modelReviewReasons.length > 0
+      && modelReviewReasons.every(isItemOnlyReviewReason)
+    ))
       || reviewReasons.length > 0,
     reviewReasons,
     items,
@@ -374,6 +381,13 @@ function isServerValidatedReviewReason(reason: string) {
     || /(category )?allocations?.*(total|sum|add up|match|reconcil)/.test(normalized)
     || /(subtotal|tax|discounts?|tip|fees?).*(does not|do not|doesn't|don't).*(match|reconcil|total)/.test(normalized)
   )
+}
+
+function isItemOnlyReviewReason(reason: string) {
+  // A consistent category does not establish that merchant/date/total were read
+  // correctly. Keep extraction warnings even when discarding noisy line items.
+  if (/merchant|retailer|store|total|tax|date|rotat|blur|image|receipt/i.test(reason)) return false
+  return /item|product|categor|classification|abbreviat|ocr|duplicate|continuation/i.test(reason)
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

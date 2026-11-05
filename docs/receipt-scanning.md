@@ -4,11 +4,17 @@ Receipt images are resized in the browser, sent directly to the authenticated `a
 
 The browser rejects source images larger than 10 MB. Accepted phone photos are converted to JPEG and progressively resized/compressed to at most 5 MB while preserving their aspect ratio; images smaller than the current resize target are never upscaled. OpenAI vision is explicitly requested with `detail: "high"` so small receipt text remains readable.
 
+Camera captures and image uploads first open a photo preview. The browser decoder explicitly applies EXIF orientation when present. A photo whose pixels are already sideways and whose orientation metadata is missing can be corrected using Rotate left/right. Rotation is baked into the JPEG itself; **Analyze photo** sends the exact bytes shown in the preview. Previewing and rotating do not call OpenAI or consume a scan quota slot. Cancelling the photo discards it.
+
+Under **Budget → Edit groups**, each spending category has an **Include in receipt scans** switch. The preference is saved on the family budget category and applies to images, documents, and pasted text. Disabled categories are omitted from the model's category list, strict schema, and server-side allocation allowlist. Loan-linked categories are always excluded. Categories remain available for manual transactions and budget planning regardless of this preference.
+
+Apply `20261104000000_receipt_category_preferences.sql` before deploying the updated Edge Function and frontend. Existing spending categories default to included, so families can choose which bills to exclude without changing previous transactions.
+
 The Edge Function uses the calling user's JWT, verifies their active family membership, and uses the existing RLS policies to load the requested categories in that family budget. It then atomically verifies an active `receipt_analysis` feature grant and reserves a per-user quota slot before contacting OpenAI. Only verified category IDs and their names/group names are sent to OpenAI. The strict response schema limits category assignments to those IDs, and server validation checks the response again before returning an editable transaction draft.
 
 Common category names receive concise classification guidance. Retail food, drinks, gum, and baby food prefer Groceries; restaurant-prepared meals prefer Restaurants; and hand wash or diaper-care products prefer an available hygiene/personal-care category. A broader but reasonable available category should not be flagged merely because a more specific category does not exist.
 
-Obvious single-category receipts, such as Aldi groceries, use one allocation and omit temporary item-level output. If the model nevertheless returns items and every valid item agrees with the single allocation, the server discards those items and their OCR-confidence warnings. Item review remains available for genuine splits or unresolved categories. Wrapped text, coupons, and repeated receipt text must not be invented as duplicate purchased items.
+Obvious single-category receipts, such as Aldi groceries, use one allocation and omit temporary item-level output. If the model nevertheless returns items and every valid item agrees with the single allocation, the server discards those items and their item-only OCR-confidence warnings. Warnings about the image, rotation, merchant, date, or total remain visible. Item review remains available for genuine splits or unresolved categories. Wrapped text, coupons, and repeated receipt text must not be invented as duplicate purchased items. The extraction prompt requires facts read directly from the receipt; unreadable fields must be null rather than guessed from category names or merchant examples.
 
 Category allocations must equal the receipt total exactly. The server deterministically reconciles discrepancies of up to 10 cents and flags the adjustment for review, removing tiny overage allocations first or adding a shortfall to the largest allocation. Larger discrepancies remain unreconciled and require manual correction.
 
@@ -91,9 +97,9 @@ node scripts/test-receipt-access-db.mjs <path-to-pglite-dist/index.js>
 
 ### Restaurant receipt
 
-1. Open Budget and select **Scan receipt** or **Upload receipt**.
+1. Open Budget and select **Scan receipt** or **Upload image**.
 2. Use a clear McDonald's or other restaurant receipt.
-3. Confirm that merchant, date, and total are populated and that one Restaurants allocation covers the total.
+3. Check the preview, rotate if needed, and select **Analyze photo**. Confirm that merchant, date, and total are populated and that one Restaurants allocation covers the total.
 4. Confirm that nothing appears in the transaction list before selecting **Save transaction**.
 5. Save and confirm the transaction appears in the selected month.
 
@@ -116,6 +122,14 @@ node scripts/test-receipt-access-db.mjs <path-to-pglite-dist/index.js>
 2. In the draft, change the category dropdown and allocation amount to the correct values.
 3. If there are multiple allocations, add/remove splits as needed and ensure they equal the total.
 4. Save and confirm the edited values—not the original AI suggestion—are persisted.
+
+### Orientation and category preferences
+
+1. Upload a sideways photo and confirm no analysis starts before **Analyze photo**. Rotate it until upright and check that the complete receipt remains visible.
+2. Analyze it and verify the extracted merchant and total against the paper receipt. Cancelling the photo instead should make no model request.
+3. In **Edit groups**, disable receipt scans for a bill such as Electricity. Reload or use another family member's device and verify the switch remains off.
+4. Scan another receipt and confirm the request category IDs exclude Electricity and linked debt categories. Both should remain selectable when manually entering a transaction.
+5. Turn off every spending category and confirm a scan displays an actionable message before making a model request. Re-enable Groceries to continue.
 
 ### Access and quota controls
 

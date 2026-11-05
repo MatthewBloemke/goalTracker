@@ -267,6 +267,23 @@ export function useBudget({ familyId, month }: UseBudgetOptions) {
     if (updateError) throw updateError
   }), [runMutation, supabase])
 
+  const setReceiptScanningEnabled = useCallback((categoryId: string, enabled: boolean) => runMutation(async () => {
+    if (!user || !familyId) throw new Error('Create or join a family first')
+    const category = categories.find(({ id }) => id === categoryId)
+    if (!category || !groups.some(({ id }) => id === category.group_id)) {
+      throw new Error('This category is not in the active family budget')
+    }
+    if (category.loan_id) throw new Error('Loan payments are excluded from receipt scans')
+    const { error: updateError } = await supabase
+      .from('budget_categories')
+      .update({ include_in_receipt_scans: enabled })
+      .eq('id', categoryId)
+      .eq('group_id', category.group_id)
+      .select('id')
+      .single()
+    if (updateError) throw updateError
+  }), [categories, familyId, groups, runMutation, supabase, user])
+
   const updateAllocation = useCallback((categoryId: string, plannedAmount: number) => runMutation(async () => {
     if (!budget) throw new Error('Create this month before assigning money')
     const existing = allocations.find((allocation) => allocation.category_id === categoryId)
@@ -340,6 +357,7 @@ export function useBudget({ familyId, month }: UseBudgetOptions) {
     archiveGroup,
     createCategory,
     archiveCategory,
+    setReceiptScanningEnabled,
     updateAllocation,
     createTransaction,
     deleteTransaction,

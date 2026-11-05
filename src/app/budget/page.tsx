@@ -9,12 +9,14 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
 import LinearProgress from '@mui/material/LinearProgress';
 import ListSubheader from '@mui/material/ListSubheader';
 import MenuItem from '@mui/material/MenuItem';
 import Popover from '@mui/material/Popover';
+import Switch from '@mui/material/Switch';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import {
@@ -30,6 +32,7 @@ import {
   type CreateTransactionInput,
 } from '@/app/budget/_hooks/useBudget';
 import { useReceiptScanner } from '@/app/budget/_hooks/useReceiptScanner';
+import { ReceiptImagePreview } from '@/app/budget/_components/ReceiptImagePreview';
 import { useFamily } from '@/hooks/useFamily';
 import {
   shiftBudgetMonth,
@@ -41,6 +44,7 @@ import {
   RECEIPT_DOCUMENT_ACCEPT,
   RECEIPT_IMAGE_TYPES,
   receiptAnalysisToTransactionDraft,
+  type PreparedReceiptImage,
   type ReceiptAnalysis,
 } from '@/app/budget/_lib/receipt';
 import { formatCurrency } from '@/app/budget/_lib/snowball';
@@ -76,6 +80,7 @@ export default function MonthlyBudgetPage() {
     null,
   );
   const [receiptTextRequested, setReceiptTextRequested] = useState(false);
+  const [receiptPhoto, setReceiptPhoto] = useState<File | null>(null);
   const budgetData = useBudget({ familyId: family?.id, month });
   const {
     budget,
@@ -94,6 +99,14 @@ export default function MonthlyBudgetPage() {
     familyId: family?.id,
     categories,
   });
+
+  const selectReceiptPhoto = (file: File) => {
+    receiptScanner.reset();
+    setReceiptPhoto(file);
+    setReceiptAnchor(null);
+    setReceiptTextRequested(false);
+    setShowTransactionForm(true);
+  };
 
   if (familyLoading || loading) return <BudgetLoading />;
   if (!family) return null;
@@ -148,6 +161,7 @@ export default function MonthlyBudgetPage() {
             startIcon={<AddRounded />}
             onClick={() => {
               receiptScanner.reset();
+              setReceiptPhoto(null);
               setReceiptTextRequested(false);
               setShowTransactionForm(true);
             }}
@@ -176,27 +190,18 @@ export default function MonthlyBudgetPage() {
           label="Scan receipt"
           accept={RECEIPT_IMAGE_TYPES.join(',')}
           capture
-          onSelect={(file) => {
-            setReceiptAnchor(null);
-            setReceiptTextRequested(false);
-            setShowTransactionForm(true);
-            void receiptScanner.analyze(file);
-          }}
+          onSelect={selectReceiptPhoto}
         />
         <ReceiptFileButton
           label="Upload image"
           accept={RECEIPT_IMAGE_TYPES.join(',')}
-          onSelect={(file) => {
-            setReceiptAnchor(null);
-            setReceiptTextRequested(false);
-            setShowTransactionForm(true);
-            void receiptScanner.analyze(file);
-          }}
+          onSelect={selectReceiptPhoto}
         />
         <ReceiptFileButton
           label="Upload PDF or email"
           accept={RECEIPT_DOCUMENT_ACCEPT}
           onSelect={(file) => {
+            setReceiptPhoto(null);
             setReceiptAnchor(null);
             setReceiptTextRequested(false);
             setShowTransactionForm(true);
@@ -207,6 +212,7 @@ export default function MonthlyBudgetPage() {
           variant="outlined"
           color="inherit"
           onClick={() => {
+            setReceiptPhoto(null);
             setReceiptAnchor(null);
             setReceiptTextRequested(true);
             setShowTransactionForm(true);
@@ -347,6 +353,7 @@ export default function MonthlyBudgetPage() {
                     onAllocationChange={budgetData.updateAllocation}
                     onAddCategory={budgetData.createCategory}
                     onDeleteCategory={budgetData.archiveCategory}
+                    onReceiptScanningChange={budgetData.setReceiptScanningEnabled}
                     onDeleteGroup={budgetData.archiveGroup}
                   />
                 ))}
@@ -374,13 +381,24 @@ export default function MonthlyBudgetPage() {
         receiptError={receiptScanner.error}
         analyzingReceipt={receiptScanner.analyzing}
         initialReceiptTextOpen={receiptTextRequested}
-        onAnalyzeReceipt={(file) => void receiptScanner.analyze(file)}
-        onAnalyzeReceiptDocument={(file) =>
-          void receiptScanner.analyzeDocument(file)
-        }
-        onAnalyzeReceiptText={(text) => void receiptScanner.analyzeText(text)}
+        receiptPhoto={receiptPhoto}
+        onSelectReceiptPhoto={selectReceiptPhoto}
+        onCancelReceiptPhoto={() => setReceiptPhoto(null)}
+        onAnalyzeReceipt={(image) => {
+          setReceiptPhoto(null);
+          void receiptScanner.analyze(image);
+        }}
+        onAnalyzeReceiptDocument={(file) => {
+          setReceiptPhoto(null);
+          void receiptScanner.analyzeDocument(file);
+        }}
+        onAnalyzeReceiptText={(text) => {
+          setReceiptPhoto(null);
+          void receiptScanner.analyzeText(text);
+        }}
         onClose={() => {
           receiptScanner.reset();
+          setReceiptPhoto(null);
           setReceiptTextRequested(false);
           setShowTransactionForm(false);
         }}
@@ -783,6 +801,7 @@ function BudgetGroupCard({
   onAllocationChange,
   onAddCategory,
   onDeleteCategory,
+  onReceiptScanningChange,
   onDeleteGroup,
 }: {
   snapshot: ReturnType<
@@ -796,6 +815,7 @@ function BudgetGroupCard({
   onAllocationChange: (categoryId: string, amount: number) => Promise<boolean>;
   onAddCategory: (groupId: string, name: string) => Promise<boolean>;
   onDeleteCategory: (categoryId: string) => Promise<boolean>;
+  onReceiptScanningChange: (categoryId: string, enabled: boolean) => Promise<boolean>;
   onDeleteGroup: (groupId: string) => Promise<boolean>;
 }) {
   const [addingCategory, setAddingCategory] = useState(false);
@@ -863,6 +883,7 @@ function BudgetGroupCard({
               valueView={valueView}
               onAllocationChange={onAllocationChange}
               onDelete={onDeleteCategory}
+              onReceiptScanningChange={onReceiptScanningChange}
             />
           ))}
         </div>
@@ -873,7 +894,7 @@ function BudgetGroupCard({
         )}
         {editing && group.is_system && (
           <p className="px-4 py-3 text-xs text-(--text-secondary)">
-            Debt categories are synced from Manage Debts.
+            Debt categories are synced from Manage Debts and excluded from receipt scans.
           </p>
         )}
         {editing && !group.is_system && (
@@ -949,6 +970,7 @@ function CategoryRow({
   valueView,
   onAllocationChange,
   onDelete,
+  onReceiptScanningChange,
 }: {
   snapshot: ReturnType<
     typeof import('@/app/budget/_lib/budget').calculateMonthlyBudget
@@ -958,6 +980,7 @@ function CategoryRow({
   valueView: CategoryValueView;
   onAllocationChange: (categoryId: string, amount: number) => Promise<boolean>;
   onDelete: (categoryId: string) => Promise<boolean>;
+  onReceiptScanningChange: (categoryId: string, enabled: boolean) => Promise<boolean>;
 }) {
   const [planned, setPlanned] = useState(String(snapshot.planned));
   const progress =
@@ -1079,6 +1102,25 @@ function CategoryRow({
           },
         }}
       />
+      {editing && !snapshot.category.loan_id && (
+        <FormControlLabel
+          sx={{ gridColumn: '1 / -1', m: 0, '& .MuiFormControlLabel-label': { fontSize: '0.8rem' } }}
+          label="Include in receipt scans"
+          control={
+            <Switch
+              size="small"
+              disabled={disabled}
+              checked={snapshot.category.include_in_receipt_scans !== false}
+              slotProps={{
+                input: { 'aria-label': `Include ${snapshot.category.name} in receipt scans` },
+              }}
+              onChange={(_event, enabled) =>
+                void onReceiptScanningChange(snapshot.category.id, enabled)
+              }
+            />
+          }
+        />
+      )}
     </div>
   );
 }
@@ -1227,6 +1269,9 @@ function TransactionDialog({
   receiptError,
   analyzingReceipt,
   initialReceiptTextOpen,
+  receiptPhoto,
+  onSelectReceiptPhoto,
+  onCancelReceiptPhoto,
   onAnalyzeReceipt,
   onAnalyzeReceiptDocument,
   onAnalyzeReceiptText,
@@ -1242,7 +1287,10 @@ function TransactionDialog({
   receiptError: string | null;
   analyzingReceipt: boolean;
   initialReceiptTextOpen: boolean;
-  onAnalyzeReceipt: (file: File) => void;
+  receiptPhoto: File | null;
+  onSelectReceiptPhoto: (file: File) => void;
+  onCancelReceiptPhoto: () => void;
+  onAnalyzeReceipt: (image: PreparedReceiptImage) => void;
   onAnalyzeReceiptDocument: (file: File) => void;
   onAnalyzeReceiptText: (text: string) => void;
   onClose: () => void;
@@ -1368,13 +1416,13 @@ function TransactionDialog({
                 accept={RECEIPT_IMAGE_TYPES.join(',')}
                 capture
                 disabled={analyzingReceipt}
-                onSelect={onAnalyzeReceipt}
+                onSelect={onSelectReceiptPhoto}
               />
               <ReceiptFileButton
                 label="Choose image"
                 accept={RECEIPT_IMAGE_TYPES.join(',')}
                 disabled={analyzingReceipt}
-                onSelect={onAnalyzeReceipt}
+                onSelect={onSelectReceiptPhoto}
               />
               <ReceiptFileButton
                 label="PDF or email"
@@ -1387,12 +1435,23 @@ function TransactionDialog({
                 variant="outlined"
                 color="inherit"
                 disabled={analyzingReceipt}
-                onClick={() => setShowReceiptText((current) => !current)}
+                onClick={() => {
+                  onCancelReceiptPhoto();
+                  setShowReceiptText((current) => !current);
+                }}
               >
                 Paste text
               </Button>
             </div>
-            {showReceiptText && (
+            {receiptPhoto && (
+              <ReceiptImagePreview
+                key={`${receiptPhoto.name}:${receiptPhoto.lastModified}:${receiptPhoto.size}`}
+                file={receiptPhoto}
+                onAnalyze={onAnalyzeReceipt}
+                onCancel={onCancelReceiptPhoto}
+              />
+            )}
+            {showReceiptText && !receiptPhoto && (
               <div className="mt-3 flex flex-col gap-2 border-t border-(--border) pt-3">
                 <AppTextField
                   multiline
@@ -1627,7 +1686,7 @@ function TransactionDialog({
             <SecondaryButton onClick={close}>Cancel</SecondaryButton>
             <PrimaryButton
               type="submit"
-              disabled={disabled || analyzingReceipt}
+              disabled={disabled || analyzingReceipt || Boolean(receiptPhoto)}
             >
               Save transaction
             </PrimaryButton>

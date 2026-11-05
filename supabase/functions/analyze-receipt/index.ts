@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { resolveOpenAiModel } from '../_shared/openai-model.ts'
+import { getReceiptCategories } from '../_shared/receipt-categories.ts'
 import {
   buildReceiptSchema,
   validateReceiptAnalysis,
@@ -114,7 +115,7 @@ Deno.serve(async (request: Request) => {
 
     const { data: categories, error: categoryError } = await supabase
       .from('budget_categories')
-      .select('id, name, group_id')
+      .select('id, name, group_id, loan_id, include_in_receipt_scans')
       .in('id', requestedCategoryIds)
       .in('group_id', groupIds)
       .is('archived_at', null)
@@ -123,13 +124,25 @@ Deno.serve(async (request: Request) => {
     const categoryById = new Map((categories ?? []).map((category) => [category.id, category]))
     const verifiedCategories = requestedCategoryIds
       .map((id) => categoryById.get(id))
-      .filter((category): category is { id: string; name: string; group_id: string } => Boolean(category))
+      .filter((category): category is {
+        id: string
+        name: string
+        group_id: string
+        loan_id: string | null
+        include_in_receipt_scans: boolean
+      } => Boolean(category))
     if (verifiedCategories.length !== requestedCategoryIds.length) {
       throw new PublicError('One or more categories are unavailable in this budget.', 403)
     }
 
+    // Filter on the server as well: older clients can still supply loan IDs.
+    const receiptCategories = getReceiptCategories(verifiedCategories)
+    if (receiptCategories.length === 0) {
+      throw new PublicError('Enable at least one spending category for receipt scans in Edit groups.', 400)
+    }
+    const receiptCategoryIds = receiptCategories.map(({ id }) => id)
     const groupById = new Map((groups ?? []).map((group) => [group.id, group]))
-    const modelCategories = verifiedCategories.map((category) => {
+    const modelCategories = receiptCategories.map((category) => {
       const groupName = groupById.get(category.group_id)?.name ?? 'Uncategorized'
       return {
         id: category.id,
@@ -195,7 +208,7 @@ Deno.serve(async (request: Request) => {
         systemPrompt: RECEIPT_SYSTEM_PROMPT,
         categories: modelCategories,
         source: receiptSource,
-        schema: buildReceiptSchema(requestedCategoryIds),
+        schema: buildReceiptSchema(receiptCategoryIds),
       })),
     })
 
@@ -241,7 +254,7 @@ Deno.serve(async (request: Request) => {
 
     const analysis = validateReceiptAnalysis(
       modelResult,
-      new Set(requestedCategoryIds),
+      new Set(receiptCategoryIds),
     )
     return json(analysis)
   } catch (error) {

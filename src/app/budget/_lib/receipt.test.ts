@@ -1,6 +1,7 @@
 import {
   getReceiptDocumentError,
   getReceiptDocumentType,
+  getReceiptCategories,
   getReceiptFileError,
   getReceiptResizeDimensions,
   getReceiptTextError,
@@ -33,6 +34,17 @@ const analysis = (overrides: Partial<ReceiptAnalysis> = {}): ReceiptAnalysis => 
     { categoryId: 'household', amount: 36.65 },
   ],
   ...overrides,
+});
+
+test('receipt categories exclude saved opt-outs and all loan payments', () => {
+  const groceries = { id: 'groceries', loan_id: null, include_in_receipt_scans: true };
+  const categories = [
+    groceries,
+    { id: 'electric', loan_id: null, include_in_receipt_scans: false },
+    { id: 'second-mortgage', loan_id: 'loan-id', include_in_receipt_scans: true },
+  ];
+  expect(getReceiptCategories(categories)).toEqual([groceries]);
+  expect(categories).toHaveLength(3);
 });
 
 describe('receipt image validation', () => {

@@ -12,6 +12,7 @@ import {
   shiftBudgetMonth,
 } from './_lib/budget';
 import type { useBudget } from './_hooks/useBudget';
+import { prepareReceiptImage } from './_lib/receipt-image';
 import type {
   BudgetGroup,
   BudgetCategory,
@@ -26,6 +27,13 @@ const mockAnalyze = jest.fn();
 const mockAnalyzeDocument = jest.fn();
 const mockAnalyzeText = jest.fn();
 const mockReset = jest.fn();
+jest.mock('./_lib/receipt-image', () => ({ prepareReceiptImage: jest.fn() }));
+const preparedPhoto = {
+  data: 'cHJlcGFyZWQtcGhvdG8=',
+  mimeType: 'image/jpeg' as const,
+  width: 900,
+  height: 1200,
+};
 jest.mock('./_hooks/useBudget', () => ({ useBudget: () => mockData }));
 jest.mock('@/hooks/useFamily', () => ({
   useFamily: () => ({
@@ -72,6 +80,7 @@ function fixture(): ReturnType<typeof useBudget> {
     name,
     group_id,
     loan_id,
+    include_in_receipt_scans: true,
     is_system: !!loan_id,
     sort_order: 0,
     archived_at: null,
@@ -160,6 +169,7 @@ function fixture(): ReturnType<typeof useBudget> {
     archiveGroup: jest.fn().mockResolvedValue(true),
     createCategory: jest.fn().mockResolvedValue(true),
     archiveCategory: jest.fn().mockResolvedValue(true),
+    setReceiptScanningEnabled: jest.fn().mockResolvedValue(true),
     updateAllocation: jest.fn().mockResolvedValue(true),
     createTransaction: jest.fn().mockResolvedValue(true),
     deleteTransaction: jest.fn().mockResolvedValue(true),
@@ -168,6 +178,7 @@ function fixture(): ReturnType<typeof useBudget> {
 beforeEach(() => {
   jest.clearAllMocks();
   mockData = fixture();
+  jest.mocked(prepareReceiptImage).mockResolvedValue(preparedPhoto);
 });
 
 test('the balance is the focal point; surplus and paid debts remain visible without management controls', () => {
@@ -339,7 +350,7 @@ test('formatted income can be edited, cancelled, and retried after a failed save
 test.each([
   ['Scan receipt', 'environment'],
   ['Upload image', null],
-])('receipt menu preserves %s input and never autosaves', (label, capture) => {
+])('receipt menu previews %s before analysis and never autosaves', async (label, capture) => {
   render(<MonthlyBudgetPage />);
   expect(screen.queryByLabelText(label)).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Receipt' }));
@@ -347,11 +358,35 @@ test.each([
   expect(input.getAttribute('capture')).toBe(capture);
   const file = new File(['receipt'], 'receipt.jpg', { type: 'image/jpeg' });
   fireEvent.change(input, { target: { files: [file] } });
-  expect(mockAnalyze).toHaveBeenCalledWith(file);
+  expect(mockAnalyze).not.toHaveBeenCalled();
+  expect(screen.getByRole('button', { name: 'Save transaction' })).toBeDisabled();
+  const analyze = screen.getByRole('button', { name: 'Analyze photo' });
+  await waitFor(() => expect(analyze).toBeEnabled());
+  fireEvent.click(analyze);
+  expect(mockAnalyze).toHaveBeenCalledWith(preparedPhoto);
   expect(
     screen.getByRole('heading', { name: 'Add transaction' }),
   ).toBeVisible();
   expect(mockData.createTransaction).not.toHaveBeenCalled();
+});
+
+test('receipt category preferences are editable while debt and manual transactions stay available', async () => {
+  mockData.categories[1].include_in_receipt_scans = false;
+  render(<MonthlyBudgetPage />);
+  fireEvent.click(screen.getByRole('button', { name: 'Edit groups' }));
+  const groceries = screen.getByRole('switch', { name: 'Include Groceries in receipt scans' });
+  const rent = screen.getByRole('switch', { name: 'Include Rent in receipt scans' });
+  expect(groceries).toBeChecked();
+  expect(rent).not.toBeChecked();
+  expect(screen.queryByRole('switch', { name: 'Include Car loan in receipt scans' })).not.toBeInTheDocument();
+  fireEvent.click(rent);
+  expect(mockData.setReceiptScanningEnabled).toHaveBeenCalledWith('rent', true);
+  fireEvent.click(groceries);
+  expect(mockData.setReceiptScanningEnabled).toHaveBeenCalledWith('groceries', false);
+  fireEvent.click(screen.getByRole('button', { name: 'Add transaction' }));
+  fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Split 1 category' }));
+  expect(await screen.findByRole('option', { name: 'Housing · Rent' })).toBeVisible();
+  expect(screen.getByRole('option', { name: 'Debt · Car loan' })).toBeVisible();
 });
 
 test('receipt menu accepts PDF or exported email documents without autosaving', () => {

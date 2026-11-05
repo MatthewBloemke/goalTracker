@@ -4,6 +4,15 @@ export const MAX_RECEIPT_SOURCE_BYTES = 10 * 1024 * 1024;
 export const MAX_RECEIPT_PROCESSED_BYTES = 5 * 1024 * 1024;
 export const MAX_RECEIPT_TEXT_CHARACTERS = 100_000;
 
+export { getReceiptCategories } from '../../../../supabase/functions/_shared/receipt-categories';
+
+export interface PreparedReceiptImage {
+  data: string;
+  mimeType: 'image/jpeg';
+  width: number;
+  height: number;
+}
+
 export type ReceiptDocumentType = 'application/pdf' | 'message/rfc822';
 
 export interface ReceiptItem {

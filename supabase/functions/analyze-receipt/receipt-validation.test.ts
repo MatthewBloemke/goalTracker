@@ -2,6 +2,7 @@ import {
   buildReceiptSchema,
   validateReceiptAnalysis,
 } from './receipt-validation'
+import { getReceiptCategories } from '../_shared/receipt-categories'
 
 const groceries = '11111111-1111-4111-8111-111111111111'
 const household = '22222222-2222-4222-8222-222222222222'
@@ -69,6 +70,28 @@ describe('server receipt validation', () => {
     expect(result.allocations).toEqual([])
     expect(result.requiresReview).toBe(true)
     expect(result.reviewReasons.join(' ')).toMatch(/not available|No reasonable/)
+  })
+
+  test('excludes opted-out bills and loan categories from schema and validation even when requested', () => {
+    const mortgage = '33333333-3333-4333-8333-333333333333'
+    const electricity = '44444444-4444-4444-8444-444444444444'
+    const eligible = getReceiptCategories([
+      { id: groceries, loan_id: null, include_in_receipt_scans: true },
+      { id: mortgage, loan_id: 'loan-id', include_in_receipt_scans: true },
+      { id: electricity, loan_id: null, include_in_receipt_scans: false },
+    ]).map(({ id }) => id)
+    const schema = buildReceiptSchema(eligible)
+    expect(schema.properties.allocations.items.properties.categoryId.enum).toEqual([groceries])
+    const result = validateReceiptAnalysis({
+      ...validResult(),
+      allocations: [
+        { categoryId: groceries, amount: 22.83 },
+        { categoryId: mortgage, amount: 25 },
+        { categoryId: electricity, amount: 30.99 },
+      ],
+    }, new Set(eligible))
+    expect(result.allocations).toEqual([{ categoryId: groceries, amount: 22.83 }])
+    expect(result.requiresReview).toBe(true)
   })
 
   test('flags allocation, arithmetic, date, and confidence problems', () => {
@@ -204,5 +227,17 @@ describe('server receipt validation', () => {
     expect(result.items).toHaveLength(1)
     expect(result.reviewReasons.join(' ')).toMatch(/Unclear household item/)
     expect(result.requiresReview).toBe(true)
+  })
+
+  test('keeps rotated-image and uncertain-total warnings even for a consistent single category', () => {
+    const result = validateReceiptAnalysis({
+      ...validResult(),
+      requiresReview: true,
+      reviewReasons: ['The receipt image is rotated and the total is uncertain.'],
+      allocations: [{ categoryId: groceries, amount: 78.82 }],
+    }, new Set([groceries]))
+    expect(result.items).toEqual([])
+    expect(result.requiresReview).toBe(true)
+    expect(result.reviewReasons).toContain('The receipt image is rotated and the total is uncertain.')
   })
 })

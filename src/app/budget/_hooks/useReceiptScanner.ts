@@ -5,13 +5,13 @@ import { useSupabase } from '@/components/providers/SupabaseProvider';
 import {
   getReceiptDocumentError,
   getReceiptDocumentType,
-  getReceiptFileError,
-  getReceiptResizeDimensions,
+  getReceiptCategories,
   getReceiptTextError,
-  MAX_RECEIPT_PROCESSED_BYTES,
   parseReceiptAnalysis,
+  type PreparedReceiptImage,
   type ReceiptAnalysis,
 } from '@/app/budget/_lib/receipt';
+import { receiptBlobToBase64 } from '@/app/budget/_lib/receipt-image';
 import type { BudgetCategory } from '@/types';
 
 interface UseReceiptScannerOptions {
@@ -48,8 +48,9 @@ export function useReceiptScanner({
     setAnalysis(null);
     setError(null);
     setAnalyzing(false);
-    if (categories.length === 0) {
-      setError('Create at least one budget category before scanning a receipt.');
+    const receiptCategories = getReceiptCategories(categories);
+    if (receiptCategories.length === 0) {
+      setError('Enable at least one spending category for receipt scans in Edit groups.');
       return;
     }
     if (!familyId) {
@@ -60,12 +61,13 @@ export function useReceiptScanner({
     setAnalyzing(true);
     try {
       const receipt = await prepareSource();
+      if (currentRequest !== requestId.current) return;
       const { data, error: functionError } = await supabase.functions.invoke(
         'analyze-receipt',
         {
           body: {
             familyId,
-            categoryIds: categories.map(({ id }) => id),
+            categoryIds: receiptCategories.map(({ id }) => id),
             receipt,
           },
         },
@@ -87,17 +89,13 @@ export function useReceiptScanner({
     }
   }, [categories, familyId, supabase]);
 
-  const analyze = useCallback(async (file: File) => {
-    const fileError = getReceiptFileError(file);
-    if (fileError) {
-      rejectInput(fileError);
-      return;
-    }
+  const analyze = useCallback(async (image: PreparedReceiptImage) => {
     await analyzeSource(async () => ({
       type: 'image',
-      ...await prepareReceiptImage(file),
+      data: image.data,
+      mimeType: image.mimeType,
     }));
-  }, [analyzeSource, rejectInput]);
+  }, [analyzeSource]);
 
   const analyzeDocument = useCallback(async (file: File) => {
     const fileError = getReceiptDocumentError(file);
@@ -108,7 +106,7 @@ export function useReceiptScanner({
     }
     await analyzeSource(async () => ({
       type: 'document',
-      data: await blobToBase64(file),
+      data: await receiptBlobToBase64(file),
       mimeType,
       fileName: file.name,
     }));
@@ -139,71 +137,6 @@ export function useReceiptScanner({
     analyzeText,
     reset,
   };
-}
-
-async function prepareReceiptImage(file: File) {
-  let bitmap: ImageBitmap;
-  try {
-    bitmap = await createImageBitmap(file);
-  } catch {
-    throw new Error('This image could not be opened. Try a JPEG, PNG, or WebP image.');
-  }
-
-  try {
-    for (const attempt of [
-      { maxDimension: 2400, quality: 0.88 },
-      { maxDimension: 2200, quality: 0.76 },
-      { maxDimension: 1800, quality: 0.68 },
-    ]) {
-      const blob = await renderReceipt(bitmap, attempt.maxDimension, attempt.quality);
-      if (blob.size <= MAX_RECEIPT_PROCESSED_BYTES) {
-        return { data: await blobToBase64(blob), mimeType: 'image/jpeg' };
-      }
-    }
-    throw new Error('The receipt is still too large after compression. Try a lower-resolution photo.');
-  } finally {
-    bitmap.close();
-  }
-}
-
-function renderReceipt(bitmap: ImageBitmap, maxDimension: number, quality: number) {
-  const { width, height } = getReceiptResizeDimensions(
-    bitmap.width,
-    bitmap.height,
-    maxDimension,
-  );
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext('2d');
-  if (!context) throw new Error('Your browser could not prepare the receipt image.');
-  context.fillStyle = '#ffffff';
-  context.fillRect(0, 0, width, height);
-  context.drawImage(bitmap, 0, 0, width, height);
-
-  return new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => blob
-        ? resolve(blob)
-        : reject(new Error('Your browser could not compress the receipt image.')),
-      'image/jpeg',
-      quality,
-    );
-  });
-}
-
-function blobToBase64(blob: Blob) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('Your browser could not read the receipt file.'));
-    reader.onload = () => {
-      const result = typeof reader.result === 'string' ? reader.result : '';
-      const commaIndex = result.indexOf(',');
-      if (commaIndex < 0) reject(new Error('Your browser returned an invalid receipt file.'));
-      else resolve(result.slice(commaIndex + 1));
-    };
-    reader.readAsDataURL(blob);
-  });
 }
 
 async function readFunctionError(error: unknown) {

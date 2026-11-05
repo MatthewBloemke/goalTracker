@@ -21,6 +21,7 @@ const group = (overrides: Partial<BudgetGroup> = {}): BudgetGroup => ({
 })
 const category = (overrides: Partial<BudgetCategory> = {}): BudgetCategory => ({
   id: 'category-grocery', group_id: 'group-food', loan_id: null, name: 'Groceries', sort_order: 0,
+  include_in_receipt_scans: true,
   is_system: false, archived_at: null, created_at: '2026-08-01', updated_at: '2026-08-01', ...overrides,
 })
 const budget = (overrides: Partial<MonthlyBudget> = {}): MonthlyBudget => ({
